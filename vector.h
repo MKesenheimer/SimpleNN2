@@ -9,7 +9,6 @@
 #include <Eigen/Dense>
 #include <Eigen/StdVector>
 #include <initializer_list>
-#include <vector>
 #include <atomic>
 
 #define _DEBUG
@@ -28,17 +27,16 @@ namespace math {
         /// <summary>
         /// typedefs
         /// </summary>
-        using data_type = std::vector<_T>;
         using eigen_type = Eigen::Matrix<_T, Eigen::Dynamic, 1>;
-        using value_type = typename data_type::value_type;
-        using size_type = typename data_type::size_type;
-        using reference = typename data_type::reference;
-        using const_reference = typename data_type::const_reference;
-        using const_iterator = typename data_type::const_iterator;
-        using const_reverse_iterator = typename data_type::const_reverse_iterator;
-        using reverse_iterator = typename data_type::reverse_iterator;
-        using iterator = typename data_type::iterator;
-        using map_type = Eigen::Map<eigen_type>; // map the data structure to Eigen::matrix
+        using map_type = Eigen::Map<eigen_type>;
+        using value_type = typename eigen_type::value_type;
+        using size_type = size_t;
+        using reference = value_type&;
+        using const_reference = const value_type&;
+        using iterator = typename eigen_type::iterator;
+        using const_iterator = typename eigen_type::const_iterator;
+        using reverse_iterator = typename std::reverse_iterator<iterator>;
+        using const_reverse_iterator = typename std::reverse_iterator<const_iterator>;
 
         // Notiz zum Zaehlen der Referenzen:
         // - Beim Anlegen eines Objekts muss der Referenzzaehler immer 1 sein, d.h. auch wenn der move-constructor 
@@ -51,54 +49,90 @@ namespace math {
         //   Deshalb werden in diesen Faellen die Referenzzaehler nicht veraendert.
 
         /// <summary>
+        /// construct a dynamic-size empty vector
+        /// </summary>
+        vector()
+            : m_eigen(0), m_refCount(1) {}
+
+        /// <summary>
         /// construct a dynamic-size vector with size 'size'
         /// </summary>
         vector(size_type s)
-            : m_data(s), m_eigen(data(), size(), 1), m_refCount(1) {}
+            : m_eigen(s), m_refCount(1) {}
 
         /// <summary>
-        /// construct an object from a std::vector
+        /// construct an object from an std::vector
         /// </summary>
-        vector(const data_type& v)
-            : m_data(v.begin(), v.end()), m_eigen(data(), size(), 1), m_refCount(1) {}
+        vector(const std::vector<_T>& v)
+            : m_eigen(v.size()), m_refCount(1) {
+                for (size_type i = 0; i < v.size(); ++i)
+                    m_eigen[i] = v[i];
+            }
+
+        /// <summary>
+        /// construct from plain array
+        /// </summary>
+        vector(const value_type* v, size_type s)
+            : m_eigen(s), m_refCount(1) {
+                for (size_type i = 0; i < s; ++i)
+                    m_eigen[i] = v[i];
+            }
 
         /// <summary>
         /// construct a dynamic-size vector with size 'size' and default value 'defaultValue'
         /// </summary>
         vector(size_type s, const value_type& defaultValue)
-            : m_data(s, defaultValue), m_eigen(data(), size(), 1), m_refCount(1) {}
-
-        /// <summary>
-        /// construct a dynamic-size empty vector
-        /// </summary>
-        vector()
-            : m_data(), m_eigen(data(), size(), 1), m_refCount(1) {}
-
-        /// <summary>
-        /// copy constructor
-        /// </summary>
-        vector(const vector& other)
-            : m_data(other.m_data), m_eigen(data(), size(), 1), m_refCount(1) {}
-
-        /// <summary>
-        /// move constructor
-        /// </summary>
-        vector(vector&& other) noexcept
-            : m_data(std::move(other.m_data)), m_eigen(data(), size(), 1), m_refCount(1) {}
+            : m_eigen(s), m_refCount(1) {
+                for (size_type i = 0; i < s; ++i)
+                    m_eigen[i] = defaultValue;
+            }
 
         /// <summary>
         /// initializing by initializer list
         /// </summary>
-        vector(std::initializer_list<value_type> IList)
-            : m_data(IList), m_eigen(data(), size(), 1), m_refCount(1) {}
+        vector(std::initializer_list<value_type> l)
+            : m_eigen(l.size()), m_refCount(1) {
+                for (size_type i = 0; i < l.size(); ++i)
+                    m_eigen[i] = *(l.begin() + i);
+            }
 
         /// <summary>
         /// construct from Eigen::matrix
         /// </summary>
         vector(const eigen_type& eigvec)
-            : m_data(eigvec.rows()), m_eigen(data(), size(), 1), m_refCount(1) {
-            //std::cout << "construct from Eigen::matrix" << std::endl;
-            m_eigen = eigvec;
+            :  m_eigen(eigvec), m_refCount(1) {}
+
+        /// <summary>
+        /// copy constructor
+        /// </summary>
+        vector(const vector& other)
+            : m_eigen(other.m_eigen), m_refCount(1) {}
+
+        /// <summary>
+        /// move constructor
+        /// </summary>
+        vector(vector&& other) noexcept
+            : m_eigen(std::move(other.m_eigen)), m_refCount(1) {}
+
+        /// <summary>
+        /// size of the data container
+        /// </summary>
+        const size_type size() const {
+            return m_eigen.rows();
+        }
+        
+        /// <summary>
+        /// returns the underlying data structure
+        /// </summary>
+        value_type* data() {
+            return m_eigen.data();
+        }
+
+        /// <summary>
+        /// returns the underlying data structure
+        /// </summary>
+        const value_type* data() const {
+            return m_eigen.data();
         }
 
         /// <summary>
@@ -106,7 +140,7 @@ namespace math {
         /// returns a const iterator
         /// </summary>
         const_iterator begin() const {
-            return m_data.begin();
+            return m_eigen.begin();
         }
 
         /// <summary>
@@ -114,23 +148,7 @@ namespace math {
         /// returns an iterator
         /// </summary>
         iterator begin() {
-            return m_data.begin();
-        }
-
-        /// <summary>
-        /// rbegin of data container
-        /// returns a const iterator
-        /// </summary>
-        const_reverse_iterator rbegin() const {
-            return m_data.rbegin();
-        }
-
-        /// <summary>
-        /// rbegin of data container
-        /// returns an iterator
-        /// </summary>
-        reverse_iterator rbegin() {
-            return m_data.rbegin();
+            return m_eigen.begin();
         }
 
         /// <summary>
@@ -138,7 +156,7 @@ namespace math {
         /// returns a const iterator
         /// </summary>
         const_iterator end() const {
-            return m_data.end();
+            return m_eigen.end();
         }
 
         /// <summary>
@@ -146,7 +164,23 @@ namespace math {
         /// returns an iterator
         /// </summary>
         iterator end() {
-            return m_data.end();
+            return m_eigen.end();
+        }
+
+        /// <summary>
+        /// rbegin of data container
+        /// returns a const iterator
+        /// </summary>
+        const_reverse_iterator rbegin() const {
+            return std::reverse_iterator(m_eigen.end());
+        }
+
+        /// <summary>
+        /// rbegin of data container
+        /// returns an iterator
+        /// </summary>
+        reverse_iterator rbegin() {
+            return std::reverse_iterator(m_eigen.end());
         }
 
         /// <summary>
@@ -154,7 +188,7 @@ namespace math {
         /// returns a const iterator
         /// </summary>
         const_reverse_iterator rend() const {
-            return m_data.rend();
+            return std::reverse_iterator(m_eigen.begin());
         }
 
         /// <summary>
@@ -162,41 +196,20 @@ namespace math {
         /// returns an iterator
         /// </summary>
         reverse_iterator rend() {
-            return m_data.rend();
-        }
-
-        /// <summary>
-        /// size of the data container
-        /// </summary>
-        const size_type size() const {
-            return m_data.size();
+            return std::reverse_iterator(m_eigen.begin());
         }
 
         /// <summary>
         /// returns the underlying data structure
         /// </summary>
-        value_type* data() {
-            return m_data.data();
-        }
-
-        /// <summary>
-        /// returns the underlying data structure
-        /// </summary>
-        const value_type* data() const {
-            return m_data.data();
-        }
-
-        /// <summary>
-        /// returns the underlying data structure
-        /// </summary>
-        map_type& eigen() {
+        eigen_type& eigen() {
             return m_eigen;
         }
 
         /// <summary>
         /// returns the underlying data structure
         /// </summary>
-        const map_type& eigen() const {
+        const eigen_type& eigen() const {
             return m_eigen;
         }
 
@@ -204,152 +217,170 @@ namespace math {
         /// is the vector empty?
         /// </summary>
         const bool empty() const {
-            return m_data.empty();
+            return size() == 0;
         }
 
         /// <summary>
         /// add new value
         /// </summary>
         void push_back(const value_type& value) {
-            m_data.push_back(value);
-            update();
+            //mat.conservativeResize(mat.rows(), mat.cols()+1);
+            //mat.col(mat.cols() - 1) = vec;
+            m_eigen.conservativeResize(m_eigen.rows() + 1, 1);
+            m_eigen[m_eigen.rows() - 1] = value;
         }
 
         /// <summary>
         /// add new value
         /// </summary>
-        void push_back(value_type&& Val) {
-            m_data.push_back(Val);
-            update();
+        void push_back(value_type&& value) {
+            m_eigen.conservativeResize(m_eigen.rows() + 1, 1);
+            m_eigen[m_eigen.rows() - 1] = std::move(value);
         }
 
         /// <summary>
         /// append a vector
         /// </summary>
         void append(const vector<value_type>& toAppend) {
-            m_data.insert(m_data.end(), toAppend.begin(), toAppend.end());
-            update();
+            size_type old = m_eigen.rows();
+            m_eigen.conservativeResize(m_eigen.rows() + toAppend.size(), 1);
+            for (int i = 0; i < toAppend.size(); ++i)
+                m_eigen[old + i] = toAppend[i];
+        }
+
+        /// <summary>
+        /// append a vector
+        /// </summary>
+        void append(vector<value_type>&& toAppend) {
+            size_type old = m_eigen.rows();
+            m_eigen.conservativeResize(m_eigen.rows() + toAppend.size(), 1);
+            for (int i = 0; i < toAppend.size(); ++i)
+                m_eigen[old + i] = std::move(toAppend[i]);
         }
 
         /// <summary>
         /// delete entries, leaving the container with a size of 0.
         /// </summary>
         void clear() {
-            m_data.clear();
-            update();
+            //m_eigen.resize(0, 0);
+            m_eigen = eigen_type(0);
         }
 
         /// <summary>
-        /// clear without change of size
+        /// clear without changing size
         /// </summary>
         void reset() {
-            size_type oldSize = size();
-            m_data.clear();
-            m_data.resize(oldSize);
-            update();
+            m_eigen = eigen_type(size());
+            for (size_type i = 0; i < size(); ++i)
+                    m_eigen[i] = 0;
         }
 
         /// <summary>
         /// assign a new size and new values to the vector
         /// </summary>
         void assign(size_type size, const value_type& defaultValue) {
-            m_data.assign(size, defaultValue);
-            update();
+            m_eigen = eigen_type(size);
+            for (size_type i = 0; i < size; ++i)
+                    m_eigen[i] = defaultValue;
         }
 
         /// <summary>
         /// resize the vector
         /// </summary>
         void resize(size_type newSize) {
-            m_data.resize(newSize);
-            update();
+            m_eigen.conservativeResize(newSize, 1);
         }
 
         /// <summary>
         /// reserve memory (does not change size, but subsequent push_back()'s are more efficient)
         /// </summary>
         void reserve(size_type size) {
-            m_data.reserve(size);
+            m_eigen = eigen_type(size);
         }
 
         /// <summary>
         /// erase with iterator
         /// </summary>
         void erase(iterator it) {
-            m_data.erase(it);
-            update();
+            size_type numRows = size() - 1;
+            size_type numCols = 1;
+
+            size_type rowToRemove = std::distance(begin(), it);
+            if (rowToRemove < numRows)
+                m_eigen.block(rowToRemove, 0, numRows - rowToRemove, numCols) = m_eigen.block(rowToRemove + 1, 0, numRows - rowToRemove, numCols);
+
+            m_eigen.conservativeResize(numRows, numCols);
         }
 
         /// <summary>
         /// erase elements in iterator range
         /// </summary>
         void erase(iterator it1, iterator it2) {
-            m_data.erase(it1, it2);
-            update();
-        }
+            size_type numberToRemove = std::distance(it1, it2);
+            size_type numRows = size() - numberToRemove;
+            size_type numCols = 1;
 
-        /// <summary>
-        /// accessing elements
-        /// </summary>
-        reference at(const size_type i) {
-            return m_data.at(i);
-        }
+            size_type rowToRemove = std::distance(begin(), it1);
+            if (rowToRemove < numRows)
+                m_eigen.block(rowToRemove, 0, numRows - rowToRemove, numCols) = m_eigen.block(rowToRemove + numberToRemove, 0, numRows - rowToRemove, numCols);
 
-        /// <summary>
-        /// accessing elements
-        /// </summary>
-        const_reference at(const size_type i) const {
-            return m_data.at(i);
+            m_eigen.conservativeResize(numRows, numCols);
         }
-
-        /// <summary>
-        /// first element
-        /// </summary>
-        const_reference front() const {
-            return m_data.front();
-        }
-
-        /// <summary>
-        /// first element
-        /// </summary>
-        reference front() {
-            return m_data.front();
-        }
-
-        /// <summary>
-        /// last element
-        /// </summary>
-        const_reference back() const {
-            return m_data.back();
-        }
-
-        /// <summary>
-        /// last element
-        /// </summary>
-        reference back() {
-            return m_data.back();
-        }
-
+        
         /// <summary>
         /// accessing elements
         /// </summary>
         const_reference operator[] (size_type const i) const {
-#if defined(DEBUG) || defined(_DEBUG)
-            return m_data.at(i);
-#else
-            return m_data[i];
-#endif
+            return m_eigen[i];
         }
 
         /// <summary>
         /// accessing elements
         /// </summary>
         reference operator[] (size_type const i) {
-#if defined(DEBUG) || defined(_DEBUG)
-            return m_data.at(i);
-#else
-            return m_data[i];
-#endif
+            return m_eigen[i];
+        }
+
+        /// <summary>
+        /// accessing elements
+        /// </summary>
+        reference at(const size_type i) {
+            return m_eigen(i);
+        }
+
+        /// <summary>
+        /// accessing elements
+        /// </summary>
+        const_reference at(const size_type i) const {
+            return m_eigen(i);
+        }
+
+        /// <summary>
+        /// first element
+        /// </summary>
+        const_reference front() const {
+            return m_eigen(0);
+        }
+
+        /// <summary>
+        /// first element
+        /// </summary>
+        reference front() {
+            return m_eigen(0);
+        }
+
+        /// <summary>
+        /// last element
+        /// </summary>
+        const_reference back() const {
+            return m_eigen(size() - 1);
+        }
+
+        /// <summary>
+        /// last element
+        /// </summary>
+        reference back() {
+            return m_eigen(size() - 1);
         }
 
         /// <summary>
@@ -357,8 +388,7 @@ namespace math {
         /// </summary>
         const vector<_T>& operator=(const vector<_T>& rhs) {
             if (this != &rhs) {
-                m_data = rhs.m_data;
-                update(); // this operator could change the size, therefor update the eigen data structure
+                m_eigen = rhs.m_eigen;
             }
             return *this;
         }
@@ -368,8 +398,7 @@ namespace math {
         /// </summary>
         vector<_T>& operator=(vector<_T>&& rhs) noexcept {
             if (this != &rhs) {
-                m_data = std::move(rhs.m_data);
-                update(); // this operator could change the size, therefor update the eigen data structure
+                m_eigen = std::move(rhs.m_eigen);
             }
             return *this;
         }
@@ -392,23 +421,15 @@ namespace math {
             return *this;
         }
 
-        // Interface methods
         /// <summary>
-        /// size of the data container
-        /// </summary>
-        size_t size() {
-            return m_data.size();
-        }
-
-        /// <summary>
-        /// 
+        /// add reference
         /// </summary>
         void addRef() {
             ++m_refCount;
         }
 
         /// <summary>
-        /// 
+        /// remove reference
         /// </summary>
         void release() {
             if (!--m_refCount)
@@ -416,21 +437,7 @@ namespace math {
         }
 
         private:
-            /// <summary>
-            /// update the eigen data structure
-            /// </summary>
-            void update() {
-                // Despite appearances, this does not invoke the memory allocator, 
-                // because the syntax specifies the location for storing the result.
-                // ref to https://eigen.tuxfamily.org/dox/group__TutorialMapClass.html
-                new (&m_eigen) map_type(data(), size(), 1);
-            }
-
-            /// <summary>
-            /// private/underlying data structure
-            /// </summary>
-            data_type m_data;
-            map_type m_eigen;
+            eigen_type m_eigen;
             std::atomic<int> m_refCount;
     };
 }

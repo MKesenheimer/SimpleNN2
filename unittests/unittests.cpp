@@ -17,11 +17,10 @@ using namespace math;
 typedef vector<double> vectord;
 typedef matrix<double> matrixd;
 
-TEST(EigenArraysTest, TestVector1dConstructors) {
+TEST(EigenArraysTest, TestVectorConstructors) {
     // ctor with size
     vectord v1(3);
     EXPECT_EQ(3, v1.size());
-    EXPECT_EQ(3, v1.eigen().size());
 
     // ctor with default values
     vectord v2(3, 1);
@@ -29,33 +28,25 @@ TEST(EigenArraysTest, TestVector1dConstructors) {
     EXPECT_EQ(1, v2.data()[0]);
     EXPECT_EQ(1, v2.data()[1]);
     EXPECT_EQ(1, v2.data()[2]);
+    EXPECT_EQ(1, v2.at(0));
+    EXPECT_EQ(1, v2.at(2));
+    EXPECT_EQ(1, v2.at(2));
 
-    EXPECT_EQ(3, v2.eigen().size());
-    EXPECT_EQ(1, v2.eigen()[0]);
-    EXPECT_EQ(1, v2.eigen()[1]);
-    EXPECT_EQ(1, v2.eigen()[2]);
-
-    v2.eigen()[0] = 2;
+    v2.data()[0] = 2;
     EXPECT_EQ(2, v2.data()[0]);
     EXPECT_EQ(1, v2.data()[1]);
     EXPECT_EQ(1, v2.data()[2]);
 
-    v2.data()[2] = 3;
-    EXPECT_EQ(2, v2.eigen()[0]);
-    EXPECT_EQ(1, v2.eigen()[1]);
-    EXPECT_EQ(3, v2.eigen()[2]);
-
     // empty ctor
     vectord v3;
     EXPECT_EQ(0, v3.size());
-    EXPECT_EQ(0, v3.eigen().size());
 
     // copy ctor
     vectord v4(v2);
-    EXPECT_EQ(3, v2.size());
-    EXPECT_EQ(2, v2.data()[0]);
-    EXPECT_EQ(1, v2.data()[1]);
-    EXPECT_EQ(3, v2.data()[2]);
+    EXPECT_EQ(3, v4.size());
+    EXPECT_EQ(2, v4.data()[0]);
+    EXPECT_EQ(1, v4.data()[1]);
+    EXPECT_EQ(1, v4.data()[2]);
 
     // initializer list
     vectord v5 = {1, 2, 3};
@@ -63,22 +54,26 @@ TEST(EigenArraysTest, TestVector1dConstructors) {
     EXPECT_EQ(1, v5.data()[0]);
     EXPECT_EQ(2, v5.data()[1]);
     EXPECT_EQ(3, v5.data()[2]);
-    EXPECT_EQ(1, v5.eigen()[0]);
-    EXPECT_EQ(2, v5.eigen()[1]);
-    EXPECT_EQ(3, v5.eigen()[2]);
 
     // with eigen matrix
-    vectord v6(v5.eigen());
+    Eigen::Matrix<double, Eigen::Dynamic, 1> eig(3);
+    eig << 1, 2, 3;
+    vectord v6(eig);
     EXPECT_EQ(3, v6.size());
     EXPECT_EQ(1, v6.data()[0]);
     EXPECT_EQ(2, v6.data()[1]);
     EXPECT_EQ(3, v6.data()[2]);
-    EXPECT_EQ(1, v6.eigen()[0]);
-    EXPECT_EQ(2, v6.eigen()[1]);
-    EXPECT_EQ(3, v6.eigen()[2]);
+
+    // with plain array
+    double a[3] = {1, 2, 3};
+    vectord v7(a, 3);
+    EXPECT_EQ(3, v7.size());
+    EXPECT_EQ(1, v7.data()[0]);
+    EXPECT_EQ(2, v7.data()[1]);
+    EXPECT_EQ(3, v7.data()[2]);
 }
 
-TEST(EigenArraysTest, TestVector1dIterators) {
+TEST(EigenArraysTest, TestVectorIterators) {
     vectord v1 = { 1, 2, 3 };
     int i = 0;
     for (const auto& e : v1)
@@ -92,22 +87,26 @@ TEST(EigenArraysTest, TestVector1dIterators) {
     i = 0;
     for (const auto& e : v2)
         EXPECT_EQ(++i, e);
+
+    i = 3;
+    for (vectord::reverse_iterator it = v1.rbegin(); it != v1.rend(); ++it)
+        EXPECT_EQ(i--, *it);
+
+    i = 3;
+    for (vectord::const_reverse_iterator it = v1.rbegin(); it != v1.rend(); ++it)
+        EXPECT_EQ(i--, *it);
 }
 
-TEST(EigenArraysTest, TestVector1dPushBack)
+TEST(EigenArraysTest, TestVectorPushBack)
 {
     vectord v1 = { 1, 2 };
     v1.push_back(3);
     EXPECT_EQ(1, v1.data()[0]);
     EXPECT_EQ(2, v1.data()[1]);
     EXPECT_EQ(3, v1.data()[2]);
-    EXPECT_EQ(1, v1.eigen()[0]);
-    EXPECT_EQ(2, v1.eigen()[1]);
-    EXPECT_EQ(3, v1.eigen()[2]);
 }
 
-TEST(EigenArraysTest, TestVector1dAppend)
-{
+TEST(EigenArraysTest, TestVectorAppend) {
     vectord v1 = { 1, 2, 3 };
     vectord v2 = { 4, 5, 6 };
     v1.append(v2);
@@ -117,32 +116,26 @@ TEST(EigenArraysTest, TestVector1dAppend)
     EXPECT_EQ(4, v1.data()[3]);
     EXPECT_EQ(5, v1.data()[4]);
     EXPECT_EQ(6, v1.data()[5]);
-    EXPECT_EQ(1, v1.eigen()[0]);
-    EXPECT_EQ(2, v1.eigen()[1]);
-    EXPECT_EQ(3, v1.eigen()[2]);
-    EXPECT_EQ(4, v1.eigen()[3]);
-    EXPECT_EQ(5, v1.eigen()[4]);
-    EXPECT_EQ(6, v1.eigen()[5]);
 }
 
-TEST(EigenArraysTest, TestVector1dClear) {
+TEST(EigenArraysTest, TestVectorClear) {
     vectord v1 = { 1, 2, 3 };
     v1.clear();
     
     EXPECT_EQ(0, v1.size());
-    EXPECT_EQ(0, v1.eigen().size());
 }
 
-TEST(EigenArraysTest, TestVector1dreset) {
+TEST(EigenArraysTest, TestVectorreset) {
     vectord v1 = { 1, 2, 3 };
     v1.reset();
 
     EXPECT_EQ(3, v1.size());
-    EXPECT_EQ(3, v1.eigen().size());
+    EXPECT_EQ(0, v1[0]);
+    EXPECT_EQ(0, v1[1]);
+    EXPECT_EQ(0, v1[2]);
 }
 
-TEST(EigenArraysTest, TestVector1dAssign)
-{
+TEST(EigenArraysTest, TestVectorAssign) {
     vectord v1 = { 6, 7, 8, 9 };
     v1.assign(4, 2);
 
@@ -153,8 +146,7 @@ TEST(EigenArraysTest, TestVector1dAssign)
     EXPECT_EQ(2, v1.eigen()[1]);
 }
 
-TEST(EigenArraysTest, TestVector1dResize)
-{
+TEST(EigenArraysTest, TestVectorResize) {
     vectord v1 = { 6, 7, 8, 9 };
     v1.resize(2);
 
@@ -162,7 +154,25 @@ TEST(EigenArraysTest, TestVector1dResize)
     EXPECT_EQ(2, v1.eigen().size());
 }
 
-TEST(EigenArraysTest, TestVector1dAdvancedDataStructure) {
+TEST(EigenArraysTest, TestVectorReserve) {
+    vectord v1;
+    v1.reserve(200);
+
+    for (int i = 0; i < 200; ++i)
+        v1.push_back(i);
+
+    EXPECT_EQ(400, v1.size());
+
+    vectord v2;
+    v2.reserve(200);
+
+    for (int i = 0; i < 200; ++i)
+        v2[i] = i;
+    EXPECT_EQ(200, v2.size());
+}
+
+
+TEST(EigenArraysTest, TestVectorAdvancedDataStructure) {
     //Eigen::matrix<std::map<int, double>, 3, 1> vectmap;
     vector<std::map<int, double>> vectmap;
 
@@ -200,7 +210,7 @@ TEST(EigenArraysTest, TestVector1dAdvancedDataStructure) {
     EXPECT_EQ(32, vectmap.eigen()[2][2]);
 }
 
-TEST(EigenArraysTest, TestVector1dEraseElement) {
+TEST(EigenArraysTest, TestVectorEraseElement) {
     vectord dvec = { 1, 2, 3, 4, 5, 6 };
 
     dvec.erase(dvec.begin()); // erase first element
@@ -230,8 +240,18 @@ TEST(EigenArraysTest, TestVector1dEraseElement) {
     EXPECT_EQ(5, dvec[2]);
 }
 
-TEST(EigenArraysTest, TestVector1dEraseElements)
-{
+TEST(EigenArraysTest, TestVectorEraseElements) {
+    vectord dvec = { 1, 2, 3, 4, 5, 6 };
+
+    dvec.erase(dvec.end() - 2, dvec.end());
+    EXPECT_EQ(4, dvec.size());
+    EXPECT_EQ(1, dvec[0]);
+    EXPECT_EQ(2, dvec[1]);
+    EXPECT_EQ(3, dvec[2]);
+    EXPECT_EQ(4, dvec[3]);
+}
+
+TEST(EigenArraysTest, TestVectorEraseElements2) {
     vectord dvec = { 1, 2, 3, 4, 5, 6 };
 
     dvec.erase(dvec.begin(), dvec.begin() + 3); // erase first three elements
@@ -245,7 +265,8 @@ TEST(EigenArraysTest, TestVector1dEraseElements)
     EXPECT_EQ(4, dvec[0]);
 }
 
-TEST(EigenArraysTest, TestVector1dEqualAssignment) {
+
+TEST(EigenArraysTest, TestVectorEqualAssignment) {
     vectord v1 = { 1, 2, 3 };
     vectord v2;
 
@@ -266,7 +287,8 @@ TEST(EigenArraysTest, TestVector1dEqualAssignment) {
 
 //#####################################
 
-TEST(EigenArraysTest, TestVector2dConstructors) {
+/*
+TEST(EigenArraysTest, TestMatrixConstructors) {
     // ctor with size
     matrixd m1(2, 3);
     EXPECT_EQ(2, m1.rows());
@@ -282,7 +304,7 @@ TEST(EigenArraysTest, TestVector2dConstructors) {
     for (const auto& e : m1)
         EXPECT_EQ(0, e);
 
-    // ctor with default values from vector1d
+    // ctor with default values from Vector
     vectord v1 = {1, 2, 3};
     matrixd m11(2, v1);
     EXPECT_EQ(2, m11.rows());
@@ -399,7 +421,7 @@ TEST(EigenArraysTest, TestVector2dConstructors) {
     EXPECT_EQ(6, m7.data()[5]);
 }
 
-TEST(EigenArraysTest, TestVector2dIterators) {
+TEST(EigenArraysTest, TestMatrixIterators) {
     matrixd m1 = { {1,2,3}, {4,5,6} };
 
     int i = 0;
@@ -417,13 +439,13 @@ TEST(EigenArraysTest, TestVector2dIterators) {
         EXPECT_EQ(++i, e);
 }
 
-TEST(EigenArraysTest, TestVector2dEigenMap) {
+TEST(EigenArraysTest, TestMatrixEigenMap) {
     vectord row1 = { 1, 2, 3 };
     vectord row2 = { 4, 5, 6 };
     matrixd m6 = { row1, row2 };
 
     // manipulate the eigen data structure
-    // since the eigen data is mapped to the internal data structure (std::vector) of vector2d
+    // since the eigen data is mapped to the internal data structure (std::vector) of Matrix
     // the entries of the internal data structure should change too.
     m6.eigen()(0, 0) = 7;
     m6.eigen()(0, 1) = 8;
@@ -450,7 +472,7 @@ TEST(EigenArraysTest, TestVector2dEigenMap) {
     EXPECT_EQ(12, m6.data()[5]);
 }
 
-TEST(EigenArraysTest, TestVector2dPushBack) {
+TEST(EigenArraysTest, TestMatrixPushBack) {
     matrixd m1 = { {1,2,3}, {4,5,6} };
     vectord v1 = { 7,8,9 };
     std::vector<double> v2 = { 10,11,12 };
@@ -488,7 +510,7 @@ TEST(EigenArraysTest, TestVector2dPushBack) {
     EXPECT_EQ(12, m1.data()[11]);
 }
 
-TEST(EigenArraysTest, TestVector2dClear) {
+TEST(EigenArraysTest, TestMatrixClear) {
     matrixd m1 = { {1,2,3}, {4,5,6} };
     
     m1.clear();
@@ -498,7 +520,7 @@ TEST(EigenArraysTest, TestVector2dClear) {
     EXPECT_EQ(0, m1.eigen().cols());
 }
 
-TEST(EigenArraysTest, TestVector2dReset) {
+TEST(EigenArraysTest, TestMatrixReset) {
     matrixd m1 = { {1,2,3}, {4,5,6} };
 
     m1.reset();
@@ -511,7 +533,7 @@ TEST(EigenArraysTest, TestVector2dReset) {
         EXPECT_EQ(0, e);
 }
 
-TEST(EigenArraysTest, TestVector2dAssign) {
+TEST(EigenArraysTest, TestMatrixAssign) {
     matrixd m1 = { {1,2,3}, {4,5,6} };
 
     m1.assign(3, 4, -10);
@@ -524,7 +546,7 @@ TEST(EigenArraysTest, TestVector2dAssign) {
         EXPECT_EQ(-10, e);
 }
 
-TEST(EigenArraysTest, TestVector2dResize) {
+TEST(EigenArraysTest, TestMatrixResize) {
     matrixd m1 = { {1,2,3}, {4,5,6} };
 
     m1.resize(3, 4);
@@ -549,7 +571,7 @@ TEST(EigenArraysTest, TestVector2dResize) {
     EXPECT_EQ(0, m1(2, 3));
 }
 
-TEST(EigenArraysTest, TestVector2dReserveAndAt) {
+TEST(EigenArraysTest, TestMatrixReserveAndAt) {
     matrixd m0 = { {1,2,3}, {4,5,6} }, m1;
     
     // reserve does not change size!
@@ -575,7 +597,7 @@ TEST(EigenArraysTest, TestVector2dReserveAndAt) {
     EXPECT_EQ(6, m1.at(1, 2));
 }
 
-TEST(EigenArraysTest, TestVector2dEqualOperator) {
+TEST(EigenArraysTest, TestMatrixEqualOperator) {
     matrixd m0 = { {1,2,3}, {4,5,6} }, m1, m2;
 
     m1 = m0;
@@ -605,7 +627,7 @@ TEST(EigenArraysTest, TestVector2dEqualOperator) {
     EXPECT_EQ(6, m2.at(1, 2));
 }
 
-TEST(EigenArraysTest, TestVector2dAdvancedDataStructure) {
+TEST(EigenArraysTest, TestMatrixAdvancedDataStructure) {
     matrix<std::string> m0 = { {std::string("Das ist ein sehr langer String, der in einer Matrix gespeichert wurde."), 
                                     std::string("Das ist ein sehr langer String, der in einer Matrix gespeichert wurde. (2)")},
                                 {std::string("Das ist ein weiterer langer String, der in einer Matrix gespeichert wurde."),
@@ -645,7 +667,7 @@ TEST(EigenArraysTest, TestVector2dAdvancedDataStructure) {
 
 //#####################################
 
-TEST(EigenArraysTest, TestVector2dmatrixMultiplicationTime) {
+TEST(EigenArraysTest, TestMatrixmatrixMultiplicationTime) {
     srand((int)time(NULL));
 
     const size_t nsize = 128;
@@ -703,7 +725,7 @@ TEST(EigenArraysTest, TestVector2dmatrixMultiplicationTime) {
     }
     t_end = std::chrono::high_resolution_clock::now();
     double t3 = std::chrono::duration<double, std::milli>(t_end - t_start).count();
-    std::cout << "vector2d mulitplication took " << t3 / nexec << "ms" << std::endl;
+    std::cout << "Matrix mulitplication took " << t3 / nexec << "ms" << std::endl;
 
     // multiplication with Eigen should be faster
     EXPECT_LT(t3, t1);
@@ -878,40 +900,45 @@ TEST(EigenArrayTest, AuxMultiplication) {
     EXPECT_EQ(2, b[0]);
     EXPECT_EQ(1, b[1]);
     EXPECT_EQ(3, b[2]);
-}
+}*/
 
 TEST(EigenArrayTest, MemoryMappingVectors) {
     struct nn {
         math::vector<double> parameters = {1, 2, 3, 4, 5, 6};
-        math::vector<double> iweights = math::vector<double>(3);
-        math::vector<double> oweights = math::vector<double>(3);
+        math::vector<double>::map_type iweights;
+        math::vector<double>::map_type oweights;
 
-        // map the memory such that: memory(parameters) = memory(iweights) + memory(oweights)
-        void map() {
-            // this does not call the copy constructor. In fact only the memory locations are mapped.
-            new (&iweights.eigen()) math::vector<double>::map_type(parameters.data(), 3, 1);
-            new (&oweights.eigen()) math::vector<double>::map_type(parameters.data() + 3, 3, 1);
-        }
+        nn() : iweights(parameters.data(), 3, 1), oweights(parameters.data() + 3, 3, 1) {}
     } nn;
 
-    // init
-    nn.map();
-
     // the vectors iweights and oweights now should contain the values of "parameters"
-    EXPECT_EQ(1, nn.iweights.eigen()[0]);
+    EXPECT_EQ(1, nn.iweights[0]);
     EXPECT_EQ(2, nn.iweights[1]);
     EXPECT_EQ(3, nn.iweights[2]);
     EXPECT_EQ(4, nn.oweights[0]);
     EXPECT_EQ(5, nn.oweights[1]);
     EXPECT_EQ(6, nn.oweights[2]);
 
+    //std::cout << "Modified" << std::endl;
+    for (int i = 0; i < 6; ++i)
+        nn.parameters[i] -= 1;
+    EXPECT_EQ(0, nn.iweights[0]);
+    EXPECT_EQ(1, nn.iweights[1]);
+    EXPECT_EQ(2, nn.iweights[2]);
+    EXPECT_EQ(3, nn.oweights[0]);
+    EXPECT_EQ(4, nn.oweights[1]);
+    EXPECT_EQ(5, nn.oweights[2]);
 
-    std::cout << "Modified" << std::endl;
-    math::matrix<double> M = {{0, 1, 0}, {1, 0, 0}, {0, 0, 1}};
-    nn.iweights = M * nn.iweights;
-    nn.parameters[5] = -7;
-
-    std::cout << nn.parameters << std::endl << std::endl;
-    std::cout << nn.iweights << std::endl;
-    std::cout << nn.oweights << std::endl;
+    for (int i = 0; i < 3; ++i)
+        nn.iweights[i] *= 2;
+    for (int i = 0; i < 3; ++i)
+        nn.oweights[i] *= 2;
+    EXPECT_EQ(0, nn.parameters[0]);
+    EXPECT_EQ(2, nn.parameters[1]);
+    EXPECT_EQ(4, nn.parameters[2]);
+    EXPECT_EQ(6, nn.parameters[3]);
+    EXPECT_EQ(8, nn.parameters[4]);
+    EXPECT_EQ(10, nn.parameters[5]);
 }
+
+// TODO: Test map_type matrix-multiplication etc.
