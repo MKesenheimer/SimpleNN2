@@ -1,0 +1,16 @@
+*~
+.nfs*
+*.o
+.dropbox*
+*.eps
+*.top
+*.DS_Store
+*.DSYM*
+*.a
+*.mod
+*.log
+*.tlog
+*.exe
+main
+
+build/
