@@ -77,6 +77,15 @@
         "openglsupport": "cpp",
         "specialfunctions": "cpp",
         "splines": "cpp",
-        "*.inc": "cpp"
+        "*.inc": "cpp",
+        "hash_map": "cpp",
+        "valarray": "cpp",
+        "bitset": "cpp",
+        "*.expression": "cpp",
+        "unordered_set": "cpp",
+        "forward_list": "cpp",
+        "any": "cpp",
+        "future": "cpp",
+        "variant": "cpp"
     }
 }

@@ -78,7 +78,7 @@ LDFLAGS_U += -L$(LIBGTEST) -lgtest
 BUILD = main.a nn.a 
 
 ## BUILD files for unittests
-BUILD_U = UnitTests.a gtest.a
+BUILD_U = unittests.a gtest.a
 
 
 ########################################################################

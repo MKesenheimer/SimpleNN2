@@ -11,6 +11,8 @@
 *.log
 *.tlog
 *.exe
+*.dylib
 main
+gtest
 
 build/

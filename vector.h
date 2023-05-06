@@ -29,6 +29,7 @@ namespace math {
         /// typedefs
         /// </summary>
         using data_type = std::vector<_T>;
+        using eigen_type = Eigen::Matrix<_T, Eigen::Dynamic, 1>;
         using value_type = typename data_type::value_type;
         using size_type = typename data_type::size_type;
         using reference = typename data_type::reference;
@@ -37,7 +38,6 @@ namespace math {
         using const_reverse_iterator = typename data_type::const_reverse_iterator;
         using reverse_iterator = typename data_type::reverse_iterator;
         using iterator = typename data_type::iterator;
-        using eigen_type = Eigen::Matrix<_T, Eigen::Dynamic, 1>;
         using map_type = Eigen::Map<eigen_type>; // map the data structure to Eigen::matrix
 
         // Notiz zum Zaehlen der Referenzen:
@@ -97,7 +97,7 @@ namespace math {
         /// </summary>
         vector(const eigen_type& eigvec)
             : m_data(eigvec.rows()), m_eigen(data(), size(), 1), m_refCount(1) {
-            std::cout << "construct from Eigen::matrix" << std::endl;
+            //std::cout << "construct from Eigen::matrix" << std::endl;
             m_eigen = eigvec;
         }
 
