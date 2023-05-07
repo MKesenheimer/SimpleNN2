@@ -1,5 +1,5 @@
 /*
- *  vector.h
+ *  matrix.h
  *  Created by Matthias Kesenheimer on 19.06.22.
  *  Copyright 2022. All rights reserved.
  *  More information about the Eigen library at http://eigen.tuxfamily.org/dox/index.html
@@ -13,6 +13,7 @@
 #include <vector>
 #include <atomic>
 
+//#define _DEBUG
 #ifdef _DEBUG
 #include <iostream>
 #endif
@@ -28,85 +29,153 @@ namespace math {
         /// <summary>
         /// typedefs
         /// </summary>
-        using data_type = std::vector<_T>;
-        using value_type = typename data_type::value_type;
-        using size_type = typename data_type::size_type;
-        using reference = typename data_type::reference;
-        using const_reference = typename data_type::const_reference;
-        using const_iterator = typename data_type::const_iterator;
-        using const_reverse_iterator = typename data_type::const_reverse_iterator;
-        using reverse_iterator = typename data_type::reverse_iterator;
-        using iterator = typename data_type::iterator;
         using eigen_type = Eigen::Matrix<_T, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
-        using map_type = Eigen::Map<eigen_type>; // map the data structure to Eigen::matrix
-        //using interface_item_type = InterfaceItemType_t<_T>;
-
+        using vector_type = Eigen::Matrix<_T, Eigen::Dynamic, 1>;
+        //using map_type = Eigen::Map<eigen_type>;
+        using vector_map_type = Eigen::Map<vector_type>;
+        using value_type = typename eigen_type::value_type;
+        using size_type = size_t;
+        using reference = value_type&;
+        using const_reference = const value_type&;
+        using iterator = typename vector_map_type::iterator;
+        using const_iterator = typename vector_map_type::const_iterator;
+        using reverse_iterator = typename std::reverse_iterator<iterator>;
+        using const_reverse_iterator = typename std::reverse_iterator<const_iterator>;
+        
+        /// <summary>
+        /// construct a dynamic-size empty matrix
+        /// </summary>
+        matrix()
+            : m_eigen(0, 0), m_refCount(1), m_reserved_memory_left(0) {}
+        
         /// <summary>
         /// construct a dynamic-size matrix with size 'rows'x'cols'
         /// </summary>
         matrix(size_type r, size_type c)
-            : m_cols(c), m_rows(r), m_data(r * c), m_eigen(data(), rows(), cols()), m_refCount(1) {}
+            : m_eigen(eigen_type::Zero(r, c)), m_refCount(1), m_reserved_memory_left(0) {}
 
         /// <summary>
         /// construct a dynamic-size matrix with number of rows 'rows' and default column vectors 'vector'
         /// </summary>
-        matrix(size_type r, const data_type& v)
-            : m_data(matrixFromVector(r, v)), m_eigen(data(), rows(), cols()), m_refCount(1) {}
+        matrix(size_type r, const std::vector<_T>& v)
+            : m_eigen(matrixFromVector(r, v)), m_refCount(1), m_reserved_memory_left(0) {}
 
         /// <summary>
         /// construct a dynamic-size matrix with number of rows 'rows' and default column vectors 'vector'
         /// </summary>
         matrix(size_type r, const vector<_T>& v)
-            : m_data(matrixFromVector(r, v)), m_eigen(data(), rows(), cols()), m_refCount(1) {}
+            : m_eigen(matrixFromVector(r, v)), m_refCount(1), m_reserved_memory_left(0) {}
 
         /// <summary>
         /// construct a dynamic-size matrix with size 'cols * rows' and default value 'defaultValue'
         /// </summary>
         matrix(size_type r, size_type c, const value_type& defaultValue)
-            : m_cols(c), m_rows(r), m_data(r * c, defaultValue), m_eigen(data(), rows(), cols()), m_refCount(1) {}
+            : m_eigen(eigen_type::Constant(r, c, defaultValue)), m_refCount(1), m_reserved_memory_left(0) {}
 
         /// <summary>
         /// construct a dynamic-size matrix from nested vector's
         /// </summary>
-        matrix(const vector<vector<_T>>& matrix)
-            : m_data(matrixFromVectors(matrix)), m_eigen(data(), rows(), cols()), m_refCount(1) {}
-
-        /// <summary>
-        /// construct a dynamic-size empty matrix
-        /// </summary>
-        matrix()
-            : m_cols(0), m_rows(0), m_data(), m_eigen(data(), cols(), rows()), m_refCount(1) {}
-
-        /// <summary>
-        /// copy constructor
-        /// </summary>
-        matrix(const matrix& other)
-            : m_cols(other.m_cols), m_rows(other.m_rows), m_data(other.m_data), m_eigen(data(), rows(), cols()), m_refCount(1) {}
-
-        /// <summary>
-        /// move constructor
-        /// </summary>
-        matrix(matrix&& other) noexcept
-            : m_cols(other.m_cols), m_rows(other.m_rows), m_data(std::move(other.m_data)), m_eigen(data(), rows(), cols()), m_refCount(1) {}
+        matrix(const vector<vector<_T>>& mat)
+            : m_eigen(matrixFromVectors(mat)), m_refCount(1), m_reserved_memory_left(0) {}
 
         /// <summary>
         /// initialization by initializer list
         /// </summary>
         matrix(std::initializer_list<std::initializer_list<_T>> IList)
-            : m_data(matrixFromVectors(IList)), m_eigen(data(), rows(), cols()), m_refCount(1) {}
+            : m_eigen(matrixFromVectors(IList)), m_refCount(1), m_reserved_memory_left(0) {}
 
         /// <summary>
         /// initialization by initializer list
         /// </summary>
         matrix(std::initializer_list<vector<_T>> IList)
-            : m_data(matrixFromVectors(IList)), m_eigen(data(), rows(), cols()), m_refCount(1) {}
+            : m_eigen(matrixFromVectors(IList)), m_refCount(1), m_reserved_memory_left(0) {}
+
+        /// <summary>
+        /// copy constructor
+        /// </summary>
+        matrix(const matrix& other)
+            : m_eigen(other.m_eigen), m_refCount(1), m_reserved_memory_left(0) {}
+
+        /// <summary>
+        /// move constructor
+        /// </summary>
+        matrix(matrix&& other)
+            : m_eigen(std::move(other.m_eigen)), m_refCount(1), m_reserved_memory_left(0) {}
 
         /// <summary>
         /// construct from eigen type
         /// </summary>
         matrix(const eigen_type& eigenmat)
-            : m_cols(eigenmat.cols()), m_rows(eigenmat.rows()), m_data(rows() * cols()), m_eigen(data(), rows(), cols()), m_refCount(1) {
-            m_eigen = eigenmat;
+            : m_eigen(eigenmat), m_refCount(1), m_reserved_memory_left(0) {}
+
+        /// <summary>
+        /// construct from eigen type
+        /// </summary>
+        matrix(eigen_type&& eigenmat)
+            : m_eigen(std::move(eigenmat)), m_refCount(1), m_reserved_memory_left(0) {}
+
+        /// <summary>
+        /// number of rows of the matrix
+        /// </summary>
+        size_type rows() const {
+            return m_eigen.rows() - m_reserved_memory_left;
+        }
+
+        /// <summary>
+        /// number of columns of the matrix
+        /// </summary>
+        size_type cols() const {
+            return m_eigen.cols();
+        }
+
+        /// <summary>
+        /// total size
+        /// </summary>
+        size_type size() const {
+            return cols() * rows();
+        }
+
+        /// <summary>
+        /// returns the underlying data structure
+        /// </summary>
+        value_type* data() {
+            return m_eigen.data();
+        }
+
+        /// <summary>
+        /// returns the underlying data structure
+        /// </summary>
+        const value_type* data() const {
+            return m_eigen.data();
+        }
+
+        /// <summary>
+        /// returns the underlying data structure
+        /// </summary>
+        eigen_type& eigen() {
+            return m_eigen;
+        }
+
+        /// <summary>
+        /// returns the underlying data structure
+        /// </summary>
+        const eigen_type& eigen() const {
+            return m_eigen;
+        }
+
+        /// <summary>
+        /// give back the matrix as a reshaped vector 
+        /// </summary>
+        const vector_map_type reshaped() const {
+            return vector_map_type(m_eigen.data(), cols(), 1);
+        }
+
+        /// <summary>
+        /// give back the matrix as a reshaped vector
+        /// </summary>
+        vector_map_type reshaped() {
+            //return m_eigen.template reshaped<Eigen::RowMajor>(size(), 1);
+            return vector_map_type(m_eigen.data(), cols(), 1);
         }
 
         /// <summary>
@@ -114,7 +183,7 @@ namespace math {
         /// returns a const iterator
         /// </summary>
         const_iterator begin() const {
-            return m_data.begin();
+            return reshaped().begin();
         }
 
         /// <summary>
@@ -122,23 +191,7 @@ namespace math {
         /// returns an iterator
         /// </summary>
         iterator begin() {
-            return m_data.begin();
-        }
-
-        /// <summary>
-        /// rbegin of data container
-        /// returns a const iterator
-        /// </summary>
-        const_reverse_iterator rbegin() const {
-            return m_data.rbegin();
-        }
-
-        /// <summary>
-        /// rbegin of data container
-        /// returns an iterator
-        /// </summary>
-        reverse_iterator rbegin() {
-            return m_data.rbegin();
+            return reshaped().begin();
         }
 
         /// <summary>
@@ -146,7 +199,7 @@ namespace math {
         /// returns a const iterator
         /// </summary>
         const_iterator end() const {
-            return m_data.end();
+            return reshaped().end();
         }
 
         /// <summary>
@@ -154,7 +207,23 @@ namespace math {
         /// returns an iterator
         /// </summary>
         iterator end() {
-            return m_data.end();
+            return reshaped().end();
+        }
+
+        /// <summary>
+        /// rbegin of data container
+        /// returns a const iterator
+        /// </summary>
+        const_reverse_iterator rbegin() const {
+            return std::reverse_iterator(reshaped().end());
+        }
+
+        /// <summary>
+        /// rbegin of data container
+        /// returns an iterator
+        /// </summary>
+        reverse_iterator rbegin() {
+            return std::reverse_iterator(reshaped().end());
         }
 
         /// <summary>
@@ -162,7 +231,7 @@ namespace math {
         /// returns a const iterator
         /// </summary>
         const_reverse_iterator rend() const {
-            return m_data.rend();
+            return std::reverse_iterator(reshaped().begin());
         }
 
         /// <summary>
@@ -170,120 +239,152 @@ namespace math {
         /// returns an iterator
         /// </summary>
         reverse_iterator rend() {
-            return m_data.rend();
+            return std::reverse_iterator(reshaped().begin());
         }
 
         /// <summary>
-        /// number of rows of the matrix
+        /// is the matrix empty?
         /// </summary>
-        size_type rows() const {
-            return m_rows;
-        }
-
-        /// <summary>
-        /// number of columns of the matrix
-        /// </summary>
-        size_type cols() const {
-            return m_cols;
-        }
-
-        /// <summary>
-        /// returns the underlying data structure
-        /// </summary>
-        value_type* data() {
-            return m_data.data();
-        }
-
-        /// <summary>
-        /// returns the underlying data structure
-        /// </summary>
-        const value_type* data() const {
-            return m_data.data();
-        }
-
-        /// <summary>
-        /// returns the underlying data structure
-        /// </summary>
-        map_type& eigen()
-        {
-            return m_eigen;
-        }
-
-        /// <summary>
-        /// returns the underlying data structure
-        /// </summary>
-        const map_type& eigen() const {
-            return m_eigen;
+        const bool empty() const {
+            return size() == 0;
         }
 
         /// <summary>
         /// add new row vector
         /// </summary>
         template <class _Vec>
-        void push_back(const _Vec& vector) {
-            if (m_cols == 0)
-                m_cols = vector.size();
+        void push_back(const _Vec& vec) {
+            size_type cols = m_eigen.cols();
+            if (m_eigen.cols() == 0)
+                cols = vec.size();
 
 #if defined(_DEBUG) || defined(DEBUG)
-            if (vector.size() != m_cols) {
+            if (vector.size() != m_eigen.cols()) {
                 std::cout << "Warning: matrix::push_back: size of vector does not match the matrix layout." << std::endl;
-                std::cout << "vector.size() = " << vector.size() << ", matrix.cols() = " << m_cols << std::endl;
+                std::cout << "vector.size() = " << vector.size() << ", matrix.cols() = " << m_eigen.cols() << std::endl;
             }
 #endif
-            m_rows++;
-            m_data.insert(m_data.end(), vector.begin(), vector.end());
-            update();
+
+            if (m_reserved_memory_left > 0) {
+                for (size_type c = 0; c < m_eigen.cols(); ++c)
+                    m_eigen(rows(), c) = vec[c];
+                m_reserved_memory_left--;
+                return;
+            }
+
+            m_eigen.conservativeResize(m_eigen.rows() + 1, cols);
+            for (size_type c = 0; c < vec.size(); ++c)
+                m_eigen(m_eigen.rows() - 1, c) = vec[c];
+        }
+
+        /// <summary>
+        /// add new row vector
+        /// </summary>
+        template <class _Vec>
+        void push_back(_Vec&& vec) {
+            size_type cols = m_eigen.cols();
+            if (m_eigen.cols() == 0)
+                cols = vec.size();
+
+#if defined(_DEBUG) || defined(DEBUG)
+            if (vector.size() != m_eigen.cols()) {
+                std::cout << "Warning: matrix::push_back: size of vector does not match the matrix layout." << std::endl;
+                std::cout << "vector.size() = " << vector.size() << ", matrix.cols() = " << m_eigen.cols() << std::endl;
+            }
+#endif
+
+            if (m_reserved_memory_left > 0) {
+                for (size_type c = 0; c < m_eigen.cols(); ++c)
+                    m_eigen(rows(), c) = std::move(vec[c]);
+                m_reserved_memory_left--;
+                return;
+            }
+
+            m_eigen.conservativeResize(m_eigen.rows() + 1, cols);
+            for (size_type c = 0; c < vec.size(); ++c)
+                m_eigen(m_eigen.rows() - 1, c) = std::move(vec[c]);
+        }
+
+        /// <summary>
+        /// add new row vector by initializer list
+        /// </summary>
+        void push_back(std::initializer_list<_T> vec) {
+            size_type cols = m_eigen.cols();
+            if (m_eigen.cols() == 0)
+                cols = vec.size();
+
+#if defined(_DEBUG) || defined(DEBUG)
+            if (vector.size() != m_eigen.cols()) {
+                std::cout << "Warning: matrix::push_back: size of vector does not match the matrix layout." << std::endl;
+                std::cout << "vector.size() = " << vector.size() << ", matrix.cols() = " << m_eigen.cols() << std::endl;
+            }
+#endif
+
+            if (m_reserved_memory_left > 0) {
+                size_type c = 0;
+                for (const auto& value : vec)
+                    m_eigen(rows(), c++) = value;
+                m_reserved_memory_left--;
+                return;
+            }
+
+            m_eigen.conservativeResize(m_eigen.rows() + 1, cols);
+            size_type c = 0;
+            for (const auto& value : vec)
+                m_eigen(m_eigen.rows() - 1, c) = value;
+        }
+
+        /// <summary>
+        /// reserve memory for pushing back row vectors
+        /// (does not change size, but subsequent push_back()'s are more efficient)
+        /// Note: only rows can be reserved, since a push_back() does only increase rows and not columns.
+        /// If matrix is empty, reserve rows as well as columns.
+        /// </summary>
+        void reserve_rows(size_type r, size_type c) {
+            if ((m_eigen.rows() == 0 && m_eigen.cols() == 0) || (r > m_eigen.rows() && c == m_eigen.cols())) {
+                m_reserved_memory_left = r - m_eigen.rows();
+                m_eigen.conservativeResize(r, c);
+            }
+        }
+        void reserve_rows(size_type r) {
+#if defined(_DEBUG) || defined(DEBUG)
+            if (m_eigen.cols() == 0)
+                std::cout << "Error: Matrix empty. Use reserve_rows(size_type r, size_type c) instead." << std::endl;
+#endif
+            if (r > m_eigen.rows()) {
+                m_reserved_memory_left = r - m_eigen.rows();
+                m_eigen.conservativeResize(r, m_eigen.cols());
+            }
         }
 
         /// <summary>
         /// delete entries, leaving the container with a size of 0.
         /// </summary>
         void clear() {
-            m_rows = 0;
-            m_cols = 0;
-            m_data.clear();
-            update();
+            m_eigen = eigen_type(0, 0);
         }
 
         /// <summary>
         /// clear without change of size
         /// </summary>
         void reset() {
-            size_type oldRows = rows();
-            size_type oldCols = cols();
-            m_data.clear();
-            m_data.resize(oldRows * oldCols);
-            update();
+            m_eigen = eigen_type::Zero(m_eigen.rows(), m_eigen.cols());
         }
 
         /// <summary>
         /// assign a new size and new values to the vector
         /// </summary>
         void assign(size_type r, size_type c, const value_type& defaultValue) {
-            m_rows = r;
-            m_cols = c;
-            m_data.assign(r * c, defaultValue);
-            update();
+            m_eigen = eigen_type::Constant(r, c, defaultValue);
         }
 
         /// <summary>
-        /// resize
+        /// resize, conserve the values
         /// </summary>
         void resize(size_type r, size_type c) {
-            m_rows = r;
-            m_cols = c;
-            m_data.resize(r * c);
-            update();
+            m_eigen.resize(r, c);
         }
 
-        /// <summary>
-        /// reserve memory for pushing back row vectors
-        /// (does not change size, but subsequent push_back()'s are more efficient)
-        /// </summary>
-        void reserve(size_type r, size_type c) {
-            m_data.reserve(r * c);
-        }
-        
         /// <summary>
         /// accessing elements
         /// </summary>
@@ -313,15 +414,27 @@ namespace math {
         }
 
         /// <summary>
+        /// bracket operator
+        /// </summary>
+        vector_map_type operator[](const size_type r) {
+            value_type* ptr = m_eigen.data() + r * cols();
+            return vector_map_type(ptr, cols(), 1);
+        }
+
+        /// <summary>
+        /// bracket operator
+        /// </summary>
+        const vector_map_type operator[](const size_type r) const {
+            value_type* ptr = m_eigen.data() + r * cols();
+            return vector_map_type(ptr, cols(), 1);
+        }
+
+        /// <summary>
         /// assignment operator
         /// </summary>
         const matrix<_T>& operator=(const matrix<_T>& rhs) {
-            if (this != &rhs) {
-                m_rows = rhs.m_rows;
-                m_cols = rhs.m_cols;
-                m_data = rhs.m_data;
-                update(); // this operator could change the size, therefor update the eigen data structure
-            }
+            if (this != &rhs)
+                m_eigen = rhs.m_eigen;
             return *this;
         }
 
@@ -329,28 +442,9 @@ namespace math {
         /// assignment operator
         /// </summary>
         matrix<_T>& operator=(matrix<_T>&& rhs) {
-            if (this != &rhs) {
-                m_rows = std::move(rhs.m_rows);
-                m_cols = std::move(rhs.m_cols);
-                m_data = std::move(rhs.m_data);
-                update(); // this operator could change the size, therefor update the eigen data structure
-            }
+            if (this != &rhs)
+                m_eigen = std::move(rhs.m_eigen);
             return *this;
-        }
-
-        // Interface methods
-        /// <summary>
-        /// number of rows
-        /// </summary>
-        size_t rows() {
-            return m_rows;
-        }
-
-        /// <summary>
-        /// number of columns
-        /// </summary>
-        size_t cols() {
-            return m_cols;
         }
 
         /// <summary>
@@ -370,73 +464,57 @@ namespace math {
 
     private:
         /// <summary>
-        /// update the eigen data structure
-        /// </summary>
-        void update() {
-            // Despite appearances, this does not invoke the memory allocator, 
-            // because the syntax specifies the location for storing the result.
-            // ref to https://eigen.tuxfamily.org/dox/group__TutorialMapClass.html
-            new (&m_eigen) map_type(data(), rows(), cols());
-        }
-
-        /// <summary>
         /// generate a matrix from a single vector
         /// </summary>
         template <class _Vec>
-        const data_type matrixFromVector(size_type rows, const _Vec& v) {
-            m_rows = rows;
-            m_cols = v.size();
-            data_type matrix(m_rows * m_cols);
-            size_type it = 0;
-            for (size_type r = 0; r < m_rows; ++r)
-                for (size_type c = 0; c < m_cols; ++c)
-                    matrix[it++] = v[c];
-            return matrix;
+        const eigen_type matrixFromVector(size_type rows, const _Vec& v) {
+            eigen_type mat(rows, v.size());
+            for (size_type r = 0; r < rows; ++r)
+                for (size_type c = 0; c < v.size(); ++c)
+                    mat(r, c) = v[c];
+            return mat;
         }
 
         /// <summary>
         /// generate a matrix from multiple vectors
         /// </summary>
         template <class _Vec>
-        const data_type matrixFromVectors(const std::initializer_list<_Vec>& list) {
-            m_rows = list.size();
+        const eigen_type matrixFromVectors(const std::initializer_list<_Vec>& list) {
 #ifdef _DEBUG
-            m_cols = (list.size() > 0 ? list.begin()->size() : 0);
+            size_type cols = (list.size() > 0 ? list.begin()->size() : 0);
 #else
-            m_cols = list.begin()->size();
+            size_type cols = list.begin()->size();
 #endif
-            data_type matrix(m_rows * m_cols);
+            eigen_type mat(list.size(), cols);
             size_type it = 0;
             for (const auto& vec : list) // rows
                 for (const auto& value : vec) // columns
-                    matrix[it++] = value;
-            return matrix;
+                    mat.data()[it++] = value;
+            return mat;
         }
 
         /// <summary>
         /// generate a matrix from multiple vectors
         /// </summary>
-        const data_type matrixFromVectors(const vector<vector<_T>>& mat) {
-            m_rows = mat.size();
+        const eigen_type matrixFromVectors(const vector<vector<_T>>& mat) {
 #ifdef _DEBUG
-            m_cols = (mat.size() > 0 ? mat.begin()->size() : 0);
+            size_type cols = (mat.size() > 0 ? mat.begin()->size() : 0);
 #else
-            m_cols = mat.front().size();
+            size_type cols = mat.front().size();
 #endif
-            data_type matrix(m_rows * m_cols);
+            eigen_type matr(mat.size(), cols);
             size_type it = 0;
             for (const auto& vec : mat) // rows
                 for (const auto& value : vec) // columns
-                    matrix[it++] = value;
-            return matrix;
+                    matr.data()[it++] = value;
+            return matr;
         }
 
         /// <summary>
         /// private/underlying data structure
         /// </summary>
-        size_type m_cols, m_rows;
-        data_type m_data;
-        map_type m_eigen;
+        eigen_type m_eigen;
         std::atomic<int> m_refCount;
+        size_type m_reserved_memory_left;
     };
 }

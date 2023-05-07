@@ -21,6 +21,10 @@ TEST(EigenArraysTest, TestVectorConstructors) {
     // ctor with size
     vectord v1(3);
     EXPECT_EQ(3, v1.size());
+    EXPECT_EQ(0, v1[0]);
+    EXPECT_EQ(0, v1[1]);
+    EXPECT_EQ(0, v1[2]);
+
 
     // ctor with default values
     vectord v2(3, 1);
@@ -155,20 +159,77 @@ TEST(EigenArraysTest, TestVectorResize) {
 }
 
 TEST(EigenArraysTest, TestVectorReserve) {
-    vectord v1;
-    v1.reserve(200);
-
-    for (int i = 0; i < 200; ++i)
+    // test with std::vector
+    std::vector<double> v1;
+    v1.push_back(0);
+    v1.reserve(10);
+    
+    for (int i = 0; i < 10; ++i)
         v1.push_back(i);
 
-    EXPECT_EQ(400, v1.size());
+    EXPECT_EQ(11, v1.size());
+    EXPECT_EQ(0, v1[0]);
+    for (int i = 1; i < 11; ++i)
+        EXPECT_EQ(i - 1, v1[i]);
 
-    vectord v2;
-    v2.reserve(200);
+    // test with math::vector
+    math::vector<double> v2;
+    v2.push_back(0);
+    //std::cout << "unit: size() = " << v2.size() << std::endl;
+    v2.reserve(10);
+    //std::cout << "unit: size() = " << v2.size() << std::endl;
+    
+    for (int i = 0; i < 10; ++i)
+        v2.push_back(i);
 
-    for (int i = 0; i < 200; ++i)
-        v2[i] = i;
-    EXPECT_EQ(200, v2.size());
+    EXPECT_EQ(11, v2.size());
+    EXPECT_EQ(0, v2[0]);
+    for (int i = 1; i < 11; ++i)
+        EXPECT_EQ(i - 1, v2[i]);
+}
+
+TEST(EigenArraysTest, TestSTDVectorReserveTiming) {
+    std::cout << "Without reserve():" << std::endl;
+    auto t_start = std::chrono::high_resolution_clock::now();
+    std::vector<double> v1;
+    for (int i = 0; i < 10000; ++i)
+        v1.push_back(i);
+    auto t_end = std::chrono::high_resolution_clock::now();
+    double t1 = std::chrono::duration<double, std::milli>(t_end - t_start).count();
+    std::cout << "  -> " << t1 << "ms" << std::endl;
+
+    std::cout << "With reserve():" << std::endl;
+    t_start = std::chrono::high_resolution_clock::now();
+    std::vector<double> v2;
+    v2.reserve(10000);
+    for (int i = 0; i < 10000; ++i)
+        v2.push_back(i);
+    t_end = std::chrono::high_resolution_clock::now();
+    double t2 = std::chrono::duration<double, std::milli>(t_end - t_start).count();
+    std::cout << "  -> " << t2 << "ms" << std::endl;
+    EXPECT_LT(t2, t1);
+}
+
+TEST(EigenArraysTest, TestVectorReserveTiming) {
+    std::cout << "Without reserve():" << std::endl;
+    auto t_start = std::chrono::high_resolution_clock::now();
+    math::vector<double> v1;
+    for (int i = 0; i < 10000; ++i)
+        v1.push_back(i);
+    auto t_end = std::chrono::high_resolution_clock::now();
+    double t1 = std::chrono::duration<double, std::milli>(t_end - t_start).count();
+    std::cout << "  -> " << t1 << "ms" << std::endl;
+
+    std::cout << "With reserve():" << std::endl;
+    t_start = std::chrono::high_resolution_clock::now();
+    math::vector<double> v2;
+    v2.reserve(10000);
+    for (int i = 0; i < 10000; ++i)
+        v2.push_back(i);
+    t_end = std::chrono::high_resolution_clock::now();
+    double t2 = std::chrono::duration<double, std::milli>(t_end - t_start).count();
+    std::cout << "  -> " << t2 << "ms" << std::endl;
+    EXPECT_LT(t2, t1);
 }
 
 
@@ -287,30 +348,28 @@ TEST(EigenArraysTest, TestVectorEqualAssignment) {
 
 //#####################################
 
-/*
+
 TEST(EigenArraysTest, TestMatrixConstructors) {
     // ctor with size
     matrixd m1(2, 3);
     EXPECT_EQ(2, m1.rows());
     EXPECT_EQ(3, m1.cols());
-    EXPECT_EQ(2, m1.eigen().rows());
-    EXPECT_EQ(3, m1.eigen().cols());
     EXPECT_EQ(0, m1(0, 0));
     EXPECT_EQ(0, m1(0, 1));
     EXPECT_EQ(0, m1(0, 2));
     EXPECT_EQ(0, m1(1, 0));
     EXPECT_EQ(0, m1(1, 1));
     EXPECT_EQ(0, m1(1, 2));
-    for (const auto& e : m1)
-        EXPECT_EQ(0, e);
+    
+    // TODO: iterator test
+    /*for (const auto& e : m1)
+        EXPECT_EQ(0, e);*/
 
     // ctor with default values from Vector
     vectord v1 = {1, 2, 3};
     matrixd m11(2, v1);
     EXPECT_EQ(2, m11.rows());
     EXPECT_EQ(3, m11.cols());
-    EXPECT_EQ(2, m11.eigen().rows());
-    EXPECT_EQ(3, m11.eigen().cols());
     EXPECT_EQ(1, m11(0, 0));
     EXPECT_EQ(2, m11(0, 1));
     EXPECT_EQ(3, m11(0, 2));
@@ -323,8 +382,6 @@ TEST(EigenArraysTest, TestMatrixConstructors) {
     matrixd m12(2, v2);
     EXPECT_EQ(2, m12.rows());
     EXPECT_EQ(3, m12.cols());
-    EXPECT_EQ(2, m12.eigen().rows());
-    EXPECT_EQ(3, m12.eigen().cols());
     EXPECT_EQ(1, m12(0, 0));
     EXPECT_EQ(2, m12(0, 1));
     EXPECT_EQ(3, m12(0, 2));
@@ -332,35 +389,75 @@ TEST(EigenArraysTest, TestMatrixConstructors) {
     EXPECT_EQ(2, m12(1, 1));
     EXPECT_EQ(3, m12(1, 2));
 
+
+    // Bracket operators
+    m12(1, 0) = 4;
+    m12(1, 1) = 5;
+    m12(1, 2) = 6;
+    for (int i = 0; i < 6; ++i)
+        EXPECT_EQ(i + 1, m12.data()[i]);
+    EXPECT_EQ(1, m12[0][0]);
+    EXPECT_EQ(2, m12[0][1]);
+    EXPECT_EQ(3, m12[0][2]);
+    EXPECT_EQ(4, m12[1][0]);
+    EXPECT_EQ(5, m12[1][1]);
+    EXPECT_EQ(6, m12[1][2]);
+    vectord v22 = m12[0];
+    EXPECT_EQ(1, v22[0]);
+    EXPECT_EQ(2, v22[1]);
+    EXPECT_EQ(3, v22[2]);
+    int i = 0;
+    for (int r = 0; r < 2; ++r)
+        for (int c = 0; c < 3; ++c)
+            m12[r][c] = i++;
+    EXPECT_EQ(0, m12[0][0]);
+    EXPECT_EQ(1, m12[0][1]);
+    EXPECT_EQ(2, m12[0][2]);
+    EXPECT_EQ(3, m12[1][0]);
+    EXPECT_EQ(4, m12[1][1]);
+    EXPECT_EQ(5, m12[1][2]);
+
     // ctor with default values
     matrixd m2(2, 3, 1);
     EXPECT_EQ(2, m2.rows());
     EXPECT_EQ(3, m2.cols());
-    EXPECT_EQ(2, m2.eigen().rows());
-    EXPECT_EQ(3, m2.eigen().cols());
     EXPECT_EQ(1, m2(0, 0));
     EXPECT_EQ(1, m2(0, 1));
     EXPECT_EQ(1, m2(0, 2));
     EXPECT_EQ(1, m2(1, 0));
     EXPECT_EQ(1, m2(1, 1));
     EXPECT_EQ(1, m2(1, 2));
-    for (const auto& e : m2)
-        EXPECT_EQ(1, e);
-
+    
     // empty ctor
     matrixd m3;
     EXPECT_EQ(0, m3.rows());
     EXPECT_EQ(0, m3.cols());
-    EXPECT_EQ(0, m3.eigen().rows());
-    EXPECT_EQ(0, m3.eigen().cols());
 
     // copy ctor
     matrixd m4(m2);
     EXPECT_EQ(2, m4.rows());
     EXPECT_EQ(3, m4.cols());
-    EXPECT_EQ(2, m4.eigen().rows());
-    EXPECT_EQ(3, m4.eigen().cols());
-    EXPECT_EQ(1, (m4.data())[0]);
+    EXPECT_EQ(1, m4(0, 0));
+    EXPECT_EQ(1, m4(0, 1));
+    EXPECT_EQ(1, m4(0, 2));
+    EXPECT_EQ(1, m4(1, 0));
+    EXPECT_EQ(1, m4(1, 1));
+    EXPECT_EQ(1, m4(1, 2));
+
+    // copy ctor
+    matrixd m41(std::move(m4));
+    EXPECT_EQ(2, m41.rows());
+    EXPECT_EQ(3, m41.cols());
+    EXPECT_EQ(1, m41(0, 0));
+    EXPECT_EQ(1, m41(0, 1));
+    EXPECT_EQ(1, m41(0, 2));
+    EXPECT_EQ(1, m41(1, 0));
+    EXPECT_EQ(1, m41(1, 1));
+    EXPECT_EQ(1, m41(1, 2));
+    EXPECT_EQ(0, m4.rows());
+    EXPECT_EQ(0, m4.cols());
+    EXPECT_EQ(0, m4.eigen().rows());
+    EXPECT_EQ(0, m4.eigen().cols());
 
     // initializer list
     matrixd m5 = { {1,2,3}, {4,5,6} };
@@ -402,7 +499,9 @@ TEST(EigenArraysTest, TestMatrixConstructors) {
     EXPECT_EQ(6, m6.data()[5]);
 
     // from eigen matrix
-    matrixd m7(m6.eigen());
+    Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> eig(2, 3);
+    eig << 1, 2, 3, 4, 5, 6;
+    matrixd m7(eig);
     EXPECT_EQ(2, m7.rows());
     EXPECT_EQ(3, m7.cols());
     EXPECT_EQ(2, m7.eigen().rows());
@@ -423,54 +522,36 @@ TEST(EigenArraysTest, TestMatrixConstructors) {
 
 TEST(EigenArraysTest, TestMatrixIterators) {
     matrixd m1 = { {1,2,3}, {4,5,6} };
+    for (int i = 0; i < m1.size(); ++i)
+        std::cout << m1.data()[i] << " ";
+    std::cout << std::endl;
+
+    /*for(auto x : m1.eigen().reshaped<Eigen::RowMajor>())
+        std::cout << x << " ";
+    std::cout << "\n";*/
 
     int i = 0;
-    for (const auto& e : m1)
+    for (const auto& e : m1.reshaped())
         EXPECT_EQ(++i, e);
-
 
     matrixd m2(2, 3);
     i = 0;
-    for (auto& e : m2)
+    for (auto& e : m2.reshaped())
         e = ++i;
 
     i = 0;
-    for (const auto& e : m2)
+    for (const auto& e : m2.reshaped())
         EXPECT_EQ(++i, e);
+
+    i = 3;
+    for (matrixd::reverse_iterator it = m1.rbegin(); it != m1.rend(); ++it)
+        EXPECT_EQ(i--, *it);
+
+    i = 3;
+    for (matrixd::const_reverse_iterator it = m1.rbegin(); it != m1.rend(); ++it)
+        EXPECT_EQ(i--, *it);
 }
 
-TEST(EigenArraysTest, TestMatrixEigenMap) {
-    vectord row1 = { 1, 2, 3 };
-    vectord row2 = { 4, 5, 6 };
-    matrixd m6 = { row1, row2 };
-
-    // manipulate the eigen data structure
-    // since the eigen data is mapped to the internal data structure (std::vector) of Matrix
-    // the entries of the internal data structure should change too.
-    m6.eigen()(0, 0) = 7;
-    m6.eigen()(0, 1) = 8;
-    m6.eigen()(0, 2) = 9;
-    m6.eigen()(1, 0) = 10;
-    m6.eigen()(1, 1) = 11;
-    m6.eigen()(1, 2) = 12;
-
-    EXPECT_EQ(2, m6.rows());
-    EXPECT_EQ(3, m6.cols());
-    EXPECT_EQ(2, m6.eigen().rows());
-    EXPECT_EQ(3, m6.eigen().cols());
-    EXPECT_EQ(7, m6(0, 0));
-    EXPECT_EQ(8, m6(0, 1));
-    EXPECT_EQ(9, m6(0, 2));
-    EXPECT_EQ(10, m6(1, 0));
-    EXPECT_EQ(11, m6(1, 1));
-    EXPECT_EQ(12, m6(1, 2));
-    EXPECT_EQ(7, m6.data()[0]);
-    EXPECT_EQ(8, m6.data()[1]);
-    EXPECT_EQ(9, m6.data()[2]);
-    EXPECT_EQ(10, m6.data()[3]);
-    EXPECT_EQ(11, m6.data()[4]);
-    EXPECT_EQ(12, m6.data()[5]);
-}
 
 TEST(EigenArraysTest, TestMatrixPushBack) {
     matrixd m1 = { {1,2,3}, {4,5,6} };
@@ -510,14 +591,51 @@ TEST(EigenArraysTest, TestMatrixPushBack) {
     EXPECT_EQ(12, m1.data()[11]);
 }
 
+TEST(EigenArraysTest, TestMatrixReserve) {
+    matrixd m1;
+    m1.push_back(vectord({0, 1, 2}));
+    std::cout << m1.rows() << std::endl;
+    std::cout << m1.cols() << std::endl;
+    m1.reserve_rows(10);
+    
+    for (int i = 0; i < 10; ++i)
+        m1.push_back(vectord({(double)i, (double)i + 1, (double)i + 2}));
+
+    EXPECT_EQ(11, m1.rows());
+    EXPECT_EQ(3, m1.cols());
+    EXPECT_EQ(0, m1[0][0]);
+    for (int i = 1; i < 11; ++i)
+        EXPECT_EQ(i - 1, m1[i][0]);
+}
+
+TEST(EigenArraysTest, TestMatrixReserveTiming) {
+    std::cout << "Without reserve():" << std::endl;
+    auto t_start = std::chrono::high_resolution_clock::now();
+    matrixd m1;
+    for (int i = 0; i < 10000; ++i)
+        m1.push_back({1, 2, 3});
+    auto t_end = std::chrono::high_resolution_clock::now();
+    double t1 = std::chrono::duration<double, std::milli>(t_end - t_start).count();
+    std::cout << "  -> " << t1 << "ms" << std::endl;
+
+    std::cout << "With reserve():" << std::endl;
+    t_start = std::chrono::high_resolution_clock::now();
+    matrixd m2;
+    m2.reserve_rows(10000, 3);
+    for (int i = 0; i < 10000; ++i)
+        m2.push_back({1, 2, 3});
+    t_end = std::chrono::high_resolution_clock::now();
+    double t2 = std::chrono::duration<double, std::milli>(t_end - t_start).count();
+    std::cout << "  -> " << t2 << "ms" << std::endl;
+    EXPECT_LT(t2, t1);
+}
+
 TEST(EigenArraysTest, TestMatrixClear) {
     matrixd m1 = { {1,2,3}, {4,5,6} };
     
     m1.clear();
     EXPECT_EQ(0, m1.rows());
     EXPECT_EQ(0, m1.cols());
-    EXPECT_EQ(0, m1.eigen().rows());
-    EXPECT_EQ(0, m1.eigen().cols());
 }
 
 TEST(EigenArraysTest, TestMatrixReset) {
@@ -526,8 +644,6 @@ TEST(EigenArraysTest, TestMatrixReset) {
     m1.reset();
     EXPECT_EQ(2, m1.rows());
     EXPECT_EQ(3, m1.cols());
-    EXPECT_EQ(2, m1.eigen().rows());
-    EXPECT_EQ(3, m1.eigen().cols());
 
     for (const auto& e : m1)
         EXPECT_EQ(0, e);
@@ -539,43 +655,36 @@ TEST(EigenArraysTest, TestMatrixAssign) {
     m1.assign(3, 4, -10);
     EXPECT_EQ(3, m1.rows());
     EXPECT_EQ(4, m1.cols());
-    EXPECT_EQ(3, m1.eigen().rows());
-    EXPECT_EQ(4, m1.eigen().cols());
 
     for (const auto& e : m1)
         EXPECT_EQ(-10, e);
 }
 
-TEST(EigenArraysTest, TestMatrixResize) {
-    matrixd m1 = { {1,2,3}, {4,5,6} };
 
-    m1.resize(3, 4);
+TEST(EigenArraysTest, TestMatrixResize) {
+    matrixd m1 = { {1,2,3}, 
+                   {4,5,6} };
+    //std::cout << m1.rows() << ", " << m1.cols() << std::endl;
+
+    m1.resize(3, 2);
     EXPECT_EQ(3, m1.rows());
-    EXPECT_EQ(4, m1.cols());
-    EXPECT_EQ(3, m1.eigen().rows());
-    EXPECT_EQ(4, m1.eigen().cols());
+    EXPECT_EQ(2, m1.cols());
 
     EXPECT_EQ(1, m1(0, 0));
     EXPECT_EQ(2, m1(0, 1));
-    EXPECT_EQ(3, m1(0, 2));
-    EXPECT_EQ(4, m1(0, 3));
 
-    EXPECT_EQ(5, m1(1, 0));
-    EXPECT_EQ(6, m1(1, 1));
-    EXPECT_EQ(0, m1(1, 2));
-    EXPECT_EQ(0, m1(1, 3));
-
-    EXPECT_EQ(0, m1(2, 0));
-    EXPECT_EQ(0, m1(2, 1));
-    EXPECT_EQ(0, m1(2, 2));
-    EXPECT_EQ(0, m1(2, 3));
+    EXPECT_EQ(3, m1(1, 0));
+    EXPECT_EQ(4, m1(1, 1));
+    
+    EXPECT_EQ(5, m1(2, 0));
+    EXPECT_EQ(6, m1(2, 1));
 }
 
 TEST(EigenArraysTest, TestMatrixReserveAndAt) {
     matrixd m0 = { {1,2,3}, {4,5,6} }, m1;
     
     // reserve does not change size!
-    m1.reserve(m0.rows(), m0.cols());
+    m1.reserve_rows(m0.rows(), m0.cols());
     for (size_t r = 0; r < m0.rows(); ++r) {
         vectord vec(m0.cols());
         for (size_t c = 0; c < m0.cols(); ++c)
@@ -900,7 +1009,7 @@ TEST(EigenArrayTest, AuxMultiplication) {
     EXPECT_EQ(2, b[0]);
     EXPECT_EQ(1, b[1]);
     EXPECT_EQ(3, b[2]);
-}*/
+}
 
 TEST(EigenArrayTest, MemoryMappingVectors) {
     struct nn {

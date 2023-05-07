@@ -86,6 +86,10 @@
         "forward_list": "cpp",
         "any": "cpp",
         "future": "cpp",
-        "variant": "cpp"
+        "variant": "cpp",
+        "optional": "cpp",
+        "chrono": "cpp",
+        "codecvt": "cpp",
+        "typeindex": "cpp"
     }
 }

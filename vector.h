@@ -11,7 +11,7 @@
 #include <initializer_list>
 #include <atomic>
 
-#define _DEBUG
+//#define _DEBUG
 #ifdef _DEBUG
 #include <iostream>
 #endif
@@ -52,19 +52,19 @@ namespace math {
         /// construct a dynamic-size empty vector
         /// </summary>
         vector()
-            : m_eigen(0), m_refCount(1) {}
+            : m_eigen(0), m_refCount(1), m_reserved_memory_left(0) {}
 
         /// <summary>
-        /// construct a dynamic-size vector with size 'size'
+        /// construct a dynamic-size vector with^ size 'size'
         /// </summary>
         vector(size_type s)
-            : m_eigen(s), m_refCount(1) {}
+            : m_eigen(eigen_type::Zero(s, 1)), m_refCount(1), m_reserved_memory_left(0) {}
 
         /// <summary>
         /// construct an object from an std::vector
         /// </summary>
         vector(const std::vector<_T>& v)
-            : m_eigen(v.size()), m_refCount(1) {
+            : m_eigen(v.size()), m_refCount(1), m_reserved_memory_left(0) {
                 for (size_type i = 0; i < v.size(); ++i)
                     m_eigen[i] = v[i];
             }
@@ -73,7 +73,7 @@ namespace math {
         /// construct from plain array
         /// </summary>
         vector(const value_type* v, size_type s)
-            : m_eigen(s), m_refCount(1) {
+            : m_eigen(s), m_refCount(1), m_reserved_memory_left(0) {
                 for (size_type i = 0; i < s; ++i)
                     m_eigen[i] = v[i];
             }
@@ -82,16 +82,13 @@ namespace math {
         /// construct a dynamic-size vector with size 'size' and default value 'defaultValue'
         /// </summary>
         vector(size_type s, const value_type& defaultValue)
-            : m_eigen(s), m_refCount(1) {
-                for (size_type i = 0; i < s; ++i)
-                    m_eigen[i] = defaultValue;
-            }
+            : m_eigen(eigen_type::Constant(s, 1, defaultValue)), m_refCount(1), m_reserved_memory_left(0) {}
 
         /// <summary>
         /// initializing by initializer list
         /// </summary>
         vector(std::initializer_list<value_type> l)
-            : m_eigen(l.size()), m_refCount(1) {
+            : m_eigen(l.size()), m_refCount(1), m_reserved_memory_left(0) {
                 for (size_type i = 0; i < l.size(); ++i)
                     m_eigen[i] = *(l.begin() + i);
             }
@@ -100,25 +97,31 @@ namespace math {
         /// construct from Eigen::matrix
         /// </summary>
         vector(const eigen_type& eigvec)
-            :  m_eigen(eigvec), m_refCount(1) {}
+            :  m_eigen(eigvec), m_refCount(1), m_reserved_memory_left(0) {}
 
         /// <summary>
         /// copy constructor
         /// </summary>
         vector(const vector& other)
-            : m_eigen(other.m_eigen), m_refCount(1) {}
+            : m_eigen(other.m_eigen), m_refCount(1), m_reserved_memory_left(0) {}
 
         /// <summary>
         /// move constructor
         /// </summary>
         vector(vector&& other) noexcept
-            : m_eigen(std::move(other.m_eigen)), m_refCount(1) {}
+            : m_eigen(std::move(other.m_eigen)), m_refCount(1), m_reserved_memory_left(0) {}
+
+        /// <summary>
+        /// construct from map
+        /// </summary>
+        vector(const map_type& map)
+            : m_eigen(map), m_refCount(1), m_reserved_memory_left(0) {}
 
         /// <summary>
         /// size of the data container
         /// </summary>
         const size_type size() const {
-            return m_eigen.rows();
+            return m_eigen.rows() - m_reserved_memory_left;
         }
         
         /// <summary>
@@ -133,6 +136,20 @@ namespace math {
         /// </summary>
         const value_type* data() const {
             return m_eigen.data();
+        }
+
+        /// <summary>
+        /// returns the underlying data structure
+        /// </summary>
+        eigen_type& eigen() {
+            return m_eigen;
+        }
+
+        /// <summary>
+        /// returns the underlying data structure
+        /// </summary>
+        const eigen_type& eigen() const {
+            return m_eigen;
         }
 
         /// <summary>
@@ -200,20 +217,6 @@ namespace math {
         }
 
         /// <summary>
-        /// returns the underlying data structure
-        /// </summary>
-        eigen_type& eigen() {
-            return m_eigen;
-        }
-
-        /// <summary>
-        /// returns the underlying data structure
-        /// </summary>
-        const eigen_type& eigen() const {
-            return m_eigen;
-        }
-
-        /// <summary>
         /// is the vector empty?
         /// </summary>
         const bool empty() const {
@@ -224,8 +227,11 @@ namespace math {
         /// add new value
         /// </summary>
         void push_back(const value_type& value) {
-            //mat.conservativeResize(mat.rows(), mat.cols()+1);
-            //mat.col(mat.cols() - 1) = vec;
+            if (m_reserved_memory_left > 0) {
+                m_eigen[size()] = value;
+                m_reserved_memory_left--;
+                return;
+            }
             m_eigen.conservativeResize(m_eigen.rows() + 1, 1);
             m_eigen[m_eigen.rows() - 1] = value;
         }
@@ -234,10 +240,30 @@ namespace math {
         /// add new value
         /// </summary>
         void push_back(value_type&& value) {
+            if (m_reserved_memory_left > 0) {
+                m_eigen[size()] = value;
+                m_reserved_memory_left--;
+                return;
+            }
             m_eigen.conservativeResize(m_eigen.rows() + 1, 1);
             m_eigen[m_eigen.rows() - 1] = std::move(value);
         }
 
+        /// <summary>
+        /// reserve memory (does not change size, but subsequent push_back()'s are more efficient)
+        /// Attention: Using a reserved vector that was not fully filled by
+        /// push_back()'s may cause errors in subsequent operations.
+        /// Always completely fill the vectors before using them!
+        /// </summary>
+        void reserve(size_type sz) {
+            if (sz > m_eigen.rows()) {
+                // this amount of memory is additionally reserved:
+                m_reserved_memory_left = sz - m_eigen.rows();
+                m_eigen.conservativeResize(sz);
+            }
+        }
+
+        /// TODO: make use of m_reserved_memory_left
         /// <summary>
         /// append a vector
         /// </summary>
@@ -248,6 +274,7 @@ namespace math {
                 m_eigen[old + i] = toAppend[i];
         }
 
+        /// TODO: make use of m_reserved_memory_left
         /// <summary>
         /// append a vector
         /// </summary>
@@ -270,9 +297,7 @@ namespace math {
         /// clear without changing size
         /// </summary>
         void reset() {
-            m_eigen = eigen_type(size());
-            for (size_type i = 0; i < size(); ++i)
-                    m_eigen[i] = 0;
+            m_eigen = eigen_type::Zero(m_eigen.rows(), 1);
         }
 
         /// <summary>
@@ -289,13 +314,6 @@ namespace math {
         /// </summary>
         void resize(size_type newSize) {
             m_eigen.conservativeResize(newSize, 1);
-        }
-
-        /// <summary>
-        /// reserve memory (does not change size, but subsequent push_back()'s are more efficient)
-        /// </summary>
-        void reserve(size_type size) {
-            m_eigen = eigen_type(size);
         }
 
         /// <summary>
@@ -407,7 +425,6 @@ namespace math {
         /// assignment operator
         /// </summary>
         const vector<_T>& operator=(const eigen_type& rhs) {
-            // TODO: check size of 'this' vector
             m_eigen = rhs;
             return *this;
         }
@@ -416,8 +433,15 @@ namespace math {
         /// assignment operator
         /// </summary>
         vector<_T>& operator=(eigen_type&& rhs) noexcept {
-            // TODO: check size of 'this' vector
             m_eigen = std::move(rhs);
+            return *this;
+        }
+
+        /// <summary>
+        /// assignment operator
+        /// </summary>
+        vector<_T>& operator=(const map_type& map) {
+            m_eigen = eigen_type(map);
             return *this;
         }
 
@@ -439,5 +463,6 @@ namespace math {
         private:
             eigen_type m_eigen;
             std::atomic<int> m_refCount;
+            size_type m_reserved_memory_left;
     };
 }

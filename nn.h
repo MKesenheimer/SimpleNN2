@@ -5,9 +5,9 @@
  */
 
 #pragma once
-#include "vector.h"
-#include "matrix.h"
-#include "operators.h"
+//#include "vector.h"
+//#include "matrix.h"
+//#include "operators.h"
 
 // choose transfer function
 //#define SIGMOID
@@ -15,10 +15,11 @@
 //#define TANH
 
 namespace math {
+    /*
     typedef struct nn {
         vector<double> iweights;
         
-    } nn;
+    } nn;*/
 
     class supervisor {
         public:
