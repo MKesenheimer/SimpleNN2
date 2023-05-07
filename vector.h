@@ -239,7 +239,7 @@ namespace math {
         /// <summary>
         /// add new value
         /// </summary>
-        void push_back(value_type&& value) {
+        void push_back(value_type&& value) noexcept {
             if (m_reserved_memory_left > 0) {
                 m_eigen[size()] = value;
                 m_reserved_memory_left--;
@@ -278,7 +278,7 @@ namespace math {
         /// <summary>
         /// append a vector
         /// </summary>
-        void append(vector<value_type>&& toAppend) {
+        void append(vector<value_type>&& toAppend) noexcept {
             size_type old = m_eigen.rows();
             m_eigen.conservativeResize(m_eigen.rows() + toAppend.size(), 1);
             for (int i = 0; i < toAppend.size(); ++i)

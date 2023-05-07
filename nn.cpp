@@ -13,18 +13,6 @@ namespace math {
     }
 
     double supervisor::transferFunction(double x, double theta) {
-        #ifdef SIGMOID
-            return (1 / (1 + std::exp(theta - x)));
-        #endif
-
-        #ifdef RELU
-            if(x + theta >= 0)
-                return x + theta;
-            return  0;
-        #endif
-
-        #ifdef TANH
-            return std::tanh(theta + x);
-        #endif
+        
     }
 }

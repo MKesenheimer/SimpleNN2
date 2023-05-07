@@ -20,7 +20,7 @@ PREPRO  =
 #DEBUG  += -D DEBUGV2
 ##verbose level 3
 #DEBUG  += -D DEBUGV3
-OPT     = -O2
+OPT     = -O3
 WARN    = -Wall -Wno-missing-braces
 
 ### generate directory obj, if not yet existing
@@ -75,7 +75,7 @@ LDFLAGS_U += -L$(LIBGTEST) -lgtest
 
 ########################################################################
 ## BUILD Files
-BUILD = main.a nn.a 
+BUILD = main.a
 
 ## BUILD files for unittests
 BUILD_U = unittests.a gtest.a

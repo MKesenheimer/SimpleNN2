@@ -99,7 +99,7 @@ namespace math {
         /// <summary>
         /// move constructor
         /// </summary>
-        matrix(matrix&& other)
+        matrix(matrix&& other) noexcept
             : m_eigen(std::move(other.m_eigen)), m_refCount(1), m_reserved_memory_left(0) {}
 
         /// <summary>
@@ -111,7 +111,7 @@ namespace math {
         /// <summary>
         /// construct from eigen type
         /// </summary>
-        matrix(eigen_type&& eigenmat)
+        matrix(eigen_type&& eigenmat) noexcept
             : m_eigen(std::move(eigenmat)), m_refCount(1), m_reserved_memory_left(0) {}
 
         /// <summary>
@@ -281,7 +281,7 @@ namespace math {
         /// add new row vector
         /// </summary>
         template <class _Vec>
-        void push_back(_Vec&& vec) {
+        void push_back(_Vec&& vec) noexcept {
             size_type cols = m_eigen.cols();
             if (m_eigen.cols() == 0)
                 cols = vec.size();
@@ -441,7 +441,7 @@ namespace math {
         /// <summary>
         /// assignment operator
         /// </summary>
-        matrix<_T>& operator=(matrix<_T>&& rhs) {
+        matrix<_T>& operator=(matrix<_T>&& rhs) noexcept {
             if (this != &rhs)
                 m_eigen = std::move(rhs.m_eigen);
             return *this;
