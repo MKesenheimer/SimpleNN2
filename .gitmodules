@@ -1,0 +1,9 @@
+[submodule "libs/googletest"]
+	path = libs/googletest
+	url = https://github.com/google/googletest.git
+[submodule "libs/eigen-stl-interface"]
+	path = libs/eigen-stl-interface
+	url = https://github.com/MKesenheimer/eigen-stl-interface.git
+[submodule "libs/eigen"]
+	path = libs/eigen
+	url = https://gitlab.com/libeigen/eigen.git
