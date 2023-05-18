@@ -13,9 +13,10 @@
 #include "operators.h"
 
 // choose transfer function
-//#define SIGMOID
+#define SIGMOID
 //#define RELU
 //#define TANH
+//#define COMBINED
 
 namespace math {
     /// <summary>
@@ -30,27 +31,6 @@ namespace math {
             
             iweights(parameters.data(), _ninputs, 1), 
             itheta(parameters.data() + _ninputs, _ninputs, 1),
-            ioutput(_ninputs, 0), // ioutput(_ninputs, _nneurons, 0),
-
-            hweights(parameters.data() + 2 * _ninputs, _nneurons, _ninputs),
-            htheta(parameters.data() +  2 * _ninputs + _nneurons * _ninputs, _nneurons, 1),
-            houtput(_nneurons, 0), // houtput(_nneurons, _noutputs, 0),
-
-            oweights(parameters.data() + 2 * _ninputs + _nneurons * _ninputs + _nneurons, _noutputs, _nneurons),
-            otheta(parameters.data() + 2 * _ninputs + _nneurons * _ninputs + _nneurons + _noutputs * _nneurons, _noutputs, 1),
-            ooutput(_noutputs, 0),
-
-            ntotparameters(2*_ninputs + _ninputs * _nneurons + _nneurons + _nneurons * _noutputs + _noutputs),
-            ninputs(_ninputs), noutputs(_noutputs), nneurons(_nneurons) {}
-
-        /// <summary>
-        /// copy constructor
-        /// </summary>
-        nn(const vector<double>& _parameters, size_t _ninputs, size_t _noutputs, size_t _nneurons)
-            : parameters(_parameters),
-
-            iweights(parameters.data(), _ninputs, 1), 
-            itheta(parameters.data() + _ninputs, _ninputs, 1),
             ioutput(_ninputs, 0),
 
             hweights(parameters.data() + 2 * _ninputs, _nneurons, _ninputs),
@@ -63,7 +43,6 @@ namespace math {
 
             ntotparameters(2*_ninputs + _ninputs * _nneurons + _nneurons + _nneurons * _noutputs + _noutputs),
             ninputs(_ninputs), noutputs(_noutputs), nneurons(_nneurons) {}
-        
 
         /// <summary>
         /// all parameters of the network
@@ -144,16 +123,50 @@ namespace math {
             /// 
             /// </summary>
             static void calculateNN(const math::vector<double>& xx, const nn& nn) {
-                // TODO: implement flag to choose different transfer functions
-                // TODO: define unaryExr in operators definieren
-                nn.ioutput = math::eigen::cprod(nn.iweights, xx) - nn.itheta;
-                nn.ioutput = nn.ioutput.eigen().unaryExpr(&unarySigmoid);
-                
-                nn.houtput = nn.hweights * nn.ioutput - nn.htheta;
-                nn.houtput = nn.houtput.eigen().unaryExpr(&unarySigmoid);
-                
-                nn.ooutput = nn.oweights * nn.houtput - nn.otheta;
-                nn.ooutput = nn.ooutput.eigen().unaryExpr(&unarySigmoid);
+                // TODO: implement unary operator in math::operators
+                #ifdef SIGMOID
+                    nn.ioutput = math::eigen::cprod(nn.iweights, xx) - nn.itheta;
+                    nn.ioutput = nn.ioutput.eigen().unaryExpr(&unarySigmoid);
+
+                    nn.houtput = nn.hweights * nn.ioutput - nn.htheta;
+                    nn.houtput = nn.houtput.eigen().unaryExpr(&unarySigmoid);
+
+                    nn.ooutput = nn.oweights * nn.houtput - nn.otheta;
+                    nn.ooutput = nn.ooutput.eigen().unaryExpr(&unarySigmoid);
+                #endif
+
+                #ifdef RELU
+                    nn.ioutput = math::eigen::cprod(nn.iweights, xx) + nn.itheta;
+                    nn.ioutput = nn.ioutput.eigen().unaryExpr(&unaryRelu);
+                    
+                    nn.houtput = nn.hweights * nn.ioutput + nn.htheta;
+                    nn.houtput = nn.houtput.eigen().unaryExpr(&unaryRelu);
+                    
+                    nn.ooutput = nn.oweights * nn.houtput + nn.otheta;
+                    nn.ooutput = nn.ooutput.eigen().unaryExpr(&unaryRelu);
+                #endif
+
+                #ifdef TANH
+                    nn.ioutput = math::eigen::cprod(nn.iweights, xx) + nn.itheta;
+                    nn.ioutput = nn.ioutput.eigen().unaryExpr(&unaryTanh);
+
+                    nn.houtput = nn.hweights * nn.ioutput + nn.htheta;
+                    nn.houtput = nn.houtput.eigen().unaryExpr(&unaryTanh);
+
+                    nn.ooutput = nn.oweights * nn.houtput + nn.otheta;
+                    nn.ooutput = nn.ooutput.eigen().unaryExpr(&unaryTanh);
+                #endif
+
+                #ifdef COMBINED
+                    nn.ioutput = math::eigen::cprod(nn.iweights, xx) - nn.itheta;
+                    nn.ioutput = nn.ioutput.eigen().unaryExpr(&unarySigmoid);
+
+                    nn.houtput = nn.hweights * nn.ioutput - nn.htheta;
+                    nn.houtput = nn.houtput.eigen().unaryExpr(&unarySigmoid);
+
+                    nn.ooutput = nn.oweights * nn.houtput + nn.otheta;
+                    nn.ooutput = nn.ooutput.eigen().unaryExpr(&unaryRelu);
+                #endif
             }
 
             /// <summary>
@@ -162,16 +175,16 @@ namespace math {
             static void train(nn& nn, const std::vector<dataSet>& dataset, const double accuracy, const double learningrate) {
                 double h = 0.005;
                 math::vector<double> deriv(nn.ntotparameters);
+                size_t counter = 0;
                 // optimize the cost function
                 double lf = 0;
                 do {
                     lf = lossFunction(nn, dataset);
-                    //std::cout << "lf  = " << lf << std::endl;
-                    for(int i = 0; i < nn.ntotparameters; ++i) {
+
+                    for (int i = 0; i < nn.ntotparameters; ++i) {
                         double tempi = nn.parameters[i];
                         nn.parameters[i] = nn.parameters[i] + h;
-                        struct nn nnhi(nn.parameters, nn.ninputs, nn.noutputs, nn.nneurons);
-                        double lfi = lossFunction(nnhi, dataset);
+                        double lfi = lossFunction(nn, dataset);
                         //std::cout << "lf" << i << " = " << lf << std::endl;
                         deriv[i] = (lfi - lf) / h;
                         nn.parameters[i] = tempi;
@@ -190,16 +203,21 @@ namespace math {
                     */
 
                     double alpha = learningrate;;
+                    //nn.parameters = nn.parameters - alpha * deriv;
                     for(int i = 0; i < nn.ntotparameters; ++i) {
                         nn.parameters[i] = nn.parameters[i] - alpha * deriv[i];
                     }
+
+                    // Status
+                    if (counter++ % 100 == 0)
+                        std::cout << "lf  = " << lf << std::endl;
                 } while (lf > accuracy);
             }
 
 
         private:
             /// <summary>
-            /// unary transfer function
+            /// unary relu transfer function
             /// </summary>
             static double unaryRelu(double x) {
                 if (x >= 0) 
@@ -207,12 +225,22 @@ namespace math {
                 return  0;
             }
 
+            /// <summary>
+            /// unary sigmoid transfer function
+            /// </summary>
             static double unarySigmoid(double x) {
-                return 1 / (1 + exp(-x));
+                return 1 / (1 + std::exp(-x));
             }
 
             /// <summary>
-            /// unary transfer function
+            /// unary tanh transfer function
+            /// </summary>
+            static double unaryTanh(double x) {
+                return std::tanh(x);
+            }
+
+            /// <summary>
+            /// loss function
             /// </summary>
             static double lossFunction(const nn& nn, const std::vector<dataSet>& dataset) {
                 double delta = 0;
@@ -228,7 +256,7 @@ namespace math {
             }
 
             /// <summary>
-            /// 
+            /// random number generator
             /// </summary>
             static double rnd(double a, double b){
                 double x = (double)rand() / (double)(RAND_MAX) * (b - a) + a;
