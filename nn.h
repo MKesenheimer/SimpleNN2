@@ -19,14 +19,35 @@
 //#define COMBINED
 
 namespace math {
+    // config for adaptive learning (if used)
+    typedef struct adaptive {
+        bool apply = false;
+        double upperThreshold = 1e-1;
+        double lowerThreshold = 1e-3;
+        double increase = 1e-1;
+        double maxnAdapt = 5;
+        mutable double save = 0;
+        mutable int nAdapt = 0;
+    } adaptive;
+
+    /// <summary>
+    /// configuration of the neural net
+    /// </summary>
+    typedef struct config {
+        config()
+            : adaptive() {}
+
+        config(const adaptive& _adaptive)
+            : adaptive(_adaptive) {}
+
+        adaptive adaptive;
+    } config;
+
     /// <summary>
     /// 
     /// </summary>
     typedef struct nn {
-        /// <summary>
-        /// 
-        /// </summary>
-        nn(size_t _ninputs, size_t _noutputs, size_t _nneurons)
+        nn(size_t _ninputs, size_t _noutputs, size_t _nneurons, const config _config = config())
             : parameters(2*_ninputs + _ninputs * _nneurons + _nneurons + _nneurons * _noutputs + _noutputs),
             
             iweights(parameters.data(), _ninputs, 1), 
@@ -42,7 +63,9 @@ namespace math {
             ooutput(_noutputs, 0),
 
             ntotparameters(2*_ninputs + _ninputs * _nneurons + _nneurons + _nneurons * _noutputs + _noutputs),
-            ninputs(_ninputs), noutputs(_noutputs), nneurons(_nneurons) {}
+            ninputs(_ninputs), noutputs(_noutputs), nneurons(_nneurons),
+
+            cconfig(_config) {}
 
         /// <summary>
         /// all parameters of the network
@@ -71,43 +94,41 @@ namespace math {
         mutable vector<double> ooutput;    // mat[NOUTPUTS]
 
         /// <summary>
-        /// 
+        /// number of total parameters, number of inputs, outputs and neurons
         /// </summary>
         const size_t ntotparameters, ninputs, noutputs, nneurons;
+
+        /// <summary>
+        /// config that is used to work on the neural net
+        /// </summary>
+        const config cconfig;
     } nn;
 
     /// <summary>
-    /// 
+    /// A dataset for given inputs and outputs
     /// </summary>
     typedef struct dataSet {
-        /// <summary>
-        /// 
-        /// </summary>
         dataSet()
             : xx(0), yy(0), 
             ninputs(0), noutputs(0) {}
 
-        /// <summary>
-        /// 
-        /// </summary>
         dataSet(size_t _ninputs, size_t _noutputs)
             : xx(_ninputs), yy(_noutputs), 
             ninputs(_ninputs), noutputs(_noutputs) {}
 
         /// <summary>
-        /// 
+        /// output and input values
         /// </summary>
         math::vector<double> xx, yy;
 
         /// <summary>
-        /// 
+        /// number of inputs and outputs
         /// </summary>
         const size_t ninputs, noutputs;
     } dataSet;
 
-
     /// <summary>
-    /// 
+    /// Supervisor that trains the network
     /// </summary>
     class supervisor {
         public:
@@ -120,41 +141,32 @@ namespace math {
             }
 
             /// <summary>
-            /// 
+            /// calculate the outputs for a given input
             /// </summary>
             static void calculateNN(const math::vector<double>& xx, const nn& nn) {
-                // TODO: implement unary operator in math::operators
+                // TODO: put this into the config struct
                 #ifdef SIGMOID
-                    nn.ioutput = math::eigen::cprod(nn.iweights, xx) - nn.itheta;
-                    nn.ioutput = nn.ioutput.eigen().unaryExpr(&unarySigmoid);
-
-                    nn.houtput = nn.hweights * nn.ioutput - nn.htheta;
-                    nn.houtput = nn.houtput.eigen().unaryExpr(&unarySigmoid);
-
-                    nn.ooutput = nn.oweights * nn.houtput - nn.otheta;
-                    nn.ooutput = nn.ooutput.eigen().unaryExpr(&unarySigmoid);
+                    double (&func)(double) = unarySigmoid;
                 #endif
 
                 #ifdef RELU
-                    nn.ioutput = math::eigen::cprod(nn.iweights, xx) + nn.itheta;
-                    nn.ioutput = nn.ioutput.eigen().unaryExpr(&unaryRelu);
-                    
-                    nn.houtput = nn.hweights * nn.ioutput + nn.htheta;
-                    nn.houtput = nn.houtput.eigen().unaryExpr(&unaryRelu);
-                    
-                    nn.ooutput = nn.oweights * nn.houtput + nn.otheta;
-                    nn.ooutput = nn.ooutput.eigen().unaryExpr(&unaryRelu);
+                    double (&func)(double) = unaryRelu;
                 #endif
 
                 #ifdef TANH
-                    nn.ioutput = math::eigen::cprod(nn.iweights, xx) + nn.itheta;
-                    nn.ioutput = nn.ioutput.eigen().unaryExpr(&unaryTanh);
+                    double (&func)(double) = unaryTanh;
+                #endif
 
-                    nn.houtput = nn.hweights * nn.ioutput + nn.htheta;
-                    nn.houtput = nn.houtput.eigen().unaryExpr(&unaryTanh);
+                #if defined(SIGMOID) || defined(RELU) || defined(TANH)
+                    // TODO: implement unary operator in math::operators
+                    nn.ioutput = math::eigen::cprod(nn.iweights, xx) - nn.itheta;
+                    nn.ioutput = nn.ioutput.eigen().unaryExpr(&func);
 
-                    nn.ooutput = nn.oweights * nn.houtput + nn.otheta;
-                    nn.ooutput = nn.ooutput.eigen().unaryExpr(&unaryTanh);
+                    nn.houtput = nn.hweights * nn.ioutput - nn.htheta;
+                    nn.houtput = nn.houtput.eigen().unaryExpr(&func);
+
+                    nn.ooutput = nn.oweights * nn.houtput - nn.otheta;
+                    nn.ooutput = nn.ooutput.eigen().unaryExpr(&func);
                 #endif
 
                 #ifdef COMBINED
@@ -202,11 +214,28 @@ namespace math {
                     std::cout << std::endl;
                     */
 
-                    double alpha = learningrate;;
-                    //nn.parameters = nn.parameters - alpha * deriv;
-                    for(int i = 0; i < nn.ntotparameters; ++i) {
-                        nn.parameters[i] = nn.parameters[i] - alpha * deriv[i];
+                    // adapt the parameters
+                    double alpha = learningrate;
+
+                    if (nn.cconfig.adaptive.apply) {
+                        auto& save = nn.cconfig.adaptive.save;
+                        auto& lowerThreshold = nn.cconfig.adaptive.lowerThreshold;
+                        auto& upperThreshold = nn.cconfig.adaptive.upperThreshold;
+                        auto& nAdapt = nn.cconfig.adaptive.nAdapt;
+                        auto& maxnAdapt = nn.cconfig.adaptive.maxnAdapt;
+                        auto& increase = nn.cconfig.adaptive.increase;
+                        // if there is only a small change in the lossfunction during
+                        // two subsequent iterations, increase the learning rate, else decrease it
+                        if(std::abs(lf - save) < lowerThreshold) nAdapt++;
+                        if(std::fabs(lf - save) > upperThreshold) nAdapt--;
+                        if (nAdapt < -maxnAdapt) nAdapt = -maxnAdapt;
+                        if (nAdapt > maxnAdapt) nAdapt = maxnAdapt;
+                        double fac = std::pow(1 + increase, nAdapt);
+                        alpha = alpha * fac;
+                        save = lf;
                     }
+                    //std::cout << alpha << std::endl;
+                    nn.parameters -= (alpha * deriv);
 
                     // Status
                     if (counter++ % 100 == 0)

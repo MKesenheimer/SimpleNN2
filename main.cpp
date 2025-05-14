@@ -11,11 +11,17 @@
 #include "nn.h"
 
 int main(int argc, char* args[]) {
+    Eigen::initParallel();
+    Eigen::setNbThreads(4);
+
     // initialize random numbers
     srand((unsigned int)time(NULL));
 
+    math::config myconfig;
+    myconfig.adaptive.apply = true;
+
     const size_t ninputs = 4, noutputs = 3;
-    math::nn nn(ninputs, noutputs, 40);
+    math::nn nn(ninputs, noutputs, 50, myconfig);
 
     math::supervisor::init(nn);
 
