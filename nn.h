@@ -158,26 +158,25 @@ namespace math {
                 #endif
 
                 #if defined(SIGMOID) || defined(RELU) || defined(TANH)
-                    // TODO: implement unary operator in math::operators
                     nn.ioutput = math::eigen::cprod(nn.iweights, xx) - nn.itheta;
-                    nn.ioutput = nn.ioutput.eigen().unaryExpr(&func);
+                    nn.ioutput = math::eigen::unary(nn.ioutput, &func);
 
                     nn.houtput = nn.hweights * nn.ioutput - nn.htheta;
-                    nn.houtput = nn.houtput.eigen().unaryExpr(&func);
+                    nn.houtput = math::eigen::unary(nn.houtput, &func);
 
                     nn.ooutput = nn.oweights * nn.houtput - nn.otheta;
-                    nn.ooutput = nn.ooutput.eigen().unaryExpr(&func);
+                    nn.ooutput = math::eigen::unary(nn.ooutput, &func);
                 #endif
 
                 #ifdef COMBINED
                     nn.ioutput = math::eigen::cprod(nn.iweights, xx) - nn.itheta;
-                    nn.ioutput = nn.ioutput.eigen().unaryExpr(&unarySigmoid);
+                    nn.ioutput = math::eigen::unary(nn.ioutput, &unarySigmoid);
 
                     nn.houtput = nn.hweights * nn.ioutput - nn.htheta;
-                    nn.houtput = nn.houtput.eigen().unaryExpr(&unarySigmoid);
+                    nn.houtput = math::eigen::unary(nn.houtput, &unarySigmoid);
 
                     nn.ooutput = nn.oweights * nn.houtput + nn.otheta;
-                    nn.ooutput = nn.ooutput.eigen().unaryExpr(&unaryRelu);
+                    nn.ooutput = math::eigen::unary(nn.ooutput, &unaryRelu);
                 #endif
             }
 
